@@ -1,0 +1,114 @@
+// Prisma schema pour ComptaDZ – SaaS multi-tenant
+// https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  COMPTABLE
+  ASSISTANT
+}
+
+enum StatutFacture {
+  BROUILLON
+  VALIDE
+  PAYEE
+  REJETEE
+}
+
+model Tenant {
+  id         String    @id @default(uuid())
+  nom        String
+  users      User[]
+  factures   Facture[]
+  plans      PlanComptable[]
+  etats      EtatFinancier[]
+  createdAt  DateTime  @default(now())
+}
+
+model User {
+  id          String   @id @default(uuid())
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId    String
+  nom         String
+  email       String   @unique
+  password    String
+  role        Role
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  modifiePar  String?
+}
+
+model Facture {
+  id          String        @id @default(uuid())
+  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId    String
+  numero      String        @unique
+  dateFacture DateTime
+  montantTotal Float
+  statut      StatutFacture @default(BROUILLON)
+  ocrTexte    String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  modifiePar  String?
+  lignes      LigneFacture[]
+  erreursOCR  ErreurOCR[]
+}
+
+model LigneFacture {
+  id           String    @id @default(uuid())
+  facture      Facture   @relation(fields: [factureId], references: [id], onDelete: Cascade)
+  factureId    String
+  description  String
+  quantite     Int
+  prixUnitaire Float
+  totalLigne   Float
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  modifiePar   String?
+}
+
+model PlanComptable {
+  id          String    @id @default(uuid())
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId    String
+  codeCompte  String
+  nomCompte   String
+  typeCompte  String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  modifiePar  String?
+}
+
+model EtatFinancier {
+  id           String    @id @default(uuid())
+  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenantId     String
+  typeRapport  String
+  contenuJson  Json
+  dateGen      DateTime  @default(now())
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  modifiePar   String?
+}
+
+model ErreurOCR {
+  id            String   @id @default(uuid())
+  facture       Facture  @relation(fields: [factureId], references: [id], onDelete: Cascade)
+  factureId     String
+  champErrone   String
+  texteReconnu  String
+  texteCorrige  String?
+  statutCorr    String   // exemple : 'non corrigé', 'corrigé'
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  modifiePar    String?
+}
+
