@@ -1,5 +1,10 @@
 # TODO ComptaDZ
 
+## Workflow & DevOps
+- [x] Initialiser le dépôt Git (branches main/dev)
+- [x] Configurer GitHub pour le dépôt distant
+- [x] Mettre en place GitHub Actions (CI/CD)
+
 ## Backend
 - [x] Structurer le backend (dossiers, MVC)
 - [x] Authentification JWT (register/login)
@@ -16,15 +21,21 @@
 - [ ] Import relevés bancaires CSV
 - [ ] Pièces jointes & commentaires
 - [ ] Alertes in-app échéances fiscales
+- [ ] Tests unitaires et d'intégration
 
 ## Frontend
-- [ ] Initialiser Vite + React + Tailwind
-- [ ] Authentification côté UI
+- [x] Initialiser Vite + React + Tailwind
+- [x] Structurer les dossiers (components, pages, etc.)
+- [ ] Mettre en place les routes (React Router)
+- [ ] Créer le contexte d'authentification
+- [ ] Créer les services API pour communiquer avec le backend
+- [ ] Authentification côté UI (login/register)
 - [ ] Dashboard utilisateur
 - [ ] UI gestion factures (OCR + manuel)
 - [ ] UI plan comptable, écritures
 - [ ] UI états financiers
 - [ ] Thème clair/sombre
+- [ ] Tests unitaires (Vitest)
 
 ---
 

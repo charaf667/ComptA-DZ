@@ -7,6 +7,9 @@ import prisma from './config/prisma';
 import authRoutes from './routes/authRoutes';
 import userRoutes from './routes/userRoutes';
 import tenantRoutes from './routes/tenantRoutes';
+import ocrRoutes from './routes/ocr.routes';
+import documentHistoryRoutes from './routes/document-history.routes';
+import accountingEntriesRoutes from './routes/accounting-entries.routes';
 
 // Initialisation des variables d'environnement
 dotenv.config();
@@ -39,6 +42,9 @@ app.get('/api/health', async (req: Request, res: Response) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/tenants', tenantRoutes);
+app.use('/api/ocr', ocrRoutes);
+app.use('/api/document-history', documentHistoryRoutes);
+app.use('/api/accounting-entries', accountingEntriesRoutes);
 
 // Middleware de gestion des erreurs 404
 app.use((req: Request, res: Response) => {
