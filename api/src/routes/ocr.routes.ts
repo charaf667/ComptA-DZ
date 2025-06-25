@@ -4,8 +4,12 @@ import * as path from 'path';
 import * as fs from 'fs-extra';
 import ocrController from '../controllers/ocr.controller';
 import { default as authMiddleware, AuthRequest } from '../middlewares/authMiddleware';
+import { tenantIsolation } from '../middlewares/tenantIsolationMiddleware';
 
 const router = express.Router();
+
+// Appliquer auth + isolation tenant à toutes les routes
+router.use(authMiddleware, tenantIsolation());
 
 // Multer config for file storage
 const storage = multer.diskStorage({

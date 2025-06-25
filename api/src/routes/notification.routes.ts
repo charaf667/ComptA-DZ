@@ -4,11 +4,12 @@
 import express from 'express';
 import notificationController from '../controllers/notification.controller';
 import authMiddleware from '../middlewares/authMiddleware';
+import { tenantIsolation } from '../middlewares/tenantIsolationMiddleware';
 
 const router = express.Router();
 
 // Appliquer l'authentification JWT à toutes les routes
-router.use(authMiddleware);
+router.use(authMiddleware, tenantIsolation());
 
 // Routes pour les préférences de notification
 router.get('/preferences', notificationController.getUserPreferences);
