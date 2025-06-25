@@ -1,6 +1,7 @@
 import express from 'express';
 import { getProfile, getUsersByTenant, updateProfile } from '../controllers/userController';
 import authMiddleware from '../middlewares/authMiddleware';
+import { requireRoles } from '../middlewares/roleMiddleware';
 
 const router = express.Router();
 
@@ -16,7 +17,7 @@ router.get('/profile', authMiddleware, getProfile);
  * @desc    Récupérer tous les utilisateurs d'un tenant (admin seulement)
  * @access  Private/Admin
  */
-router.get('/', authMiddleware, getUsersByTenant);
+router.get('/', authMiddleware, requireRoles('ADMIN'), getUsersByTenant);
 
 /**
  * @route   PUT /api/users/profile
