@@ -3,6 +3,7 @@ import { AccountController } from '../controllers/account.controller';
 import accountValidationRules from '../validators/account.validator';
 import authMiddleware from '../middlewares/authMiddleware';
 import { requireRoles } from '../middlewares/roleMiddleware';
+import { tenantIsolation } from '../middlewares/tenantIsolationMiddleware';
 import { AuthRequest } from '../middlewares/authMiddleware';
 
 // Wrapper pour gérer les erreurs de type avec Express
@@ -16,6 +17,7 @@ const router = Router();
 router.post(
   '/',
   authMiddleware,
+  tenantIsolation(),
   accountValidationRules.createAccount,
   asyncHandler(AccountController.createAccount)
 );
@@ -23,6 +25,7 @@ router.post(
 router.get(
   '/',
   authMiddleware,
+  tenantIsolation(),
   requireRoles('ACCOUNTANT','ADMIN'),
   asyncHandler(AccountController.getAccounts)
 );
@@ -30,6 +33,7 @@ router.get(
 router.get(
   '/:id',
   authMiddleware,
+  tenantIsolation(),
   requireRoles('ACCOUNTANT','ADMIN'),
   accountValidationRules.getAccount,
   asyncHandler(AccountController.getAccountById)
@@ -38,6 +42,7 @@ router.get(
 router.put(
   '/:id',
   authMiddleware,
+  tenantIsolation(),
   requireRoles('ACCOUNTANT','ADMIN'),
   accountValidationRules.updateAccount,
   asyncHandler(AccountController.updateAccount)
@@ -46,6 +51,7 @@ router.put(
 router.delete(
   '/:id',
   authMiddleware,
+  tenantIsolation(),
   requireRoles('ACCOUNTANT','ADMIN'),
   accountValidationRules.deleteAccount,
   asyncHandler(AccountController.deleteAccount)
@@ -55,6 +61,7 @@ router.delete(
 router.post(
   '/import-default',
   authMiddleware,
+  tenantIsolation(),
   requireRoles('ACCOUNTANT','ADMIN'),
   asyncHandler(AccountController.importDefaultChartOfAccounts)
 );
@@ -64,6 +71,7 @@ import { upload } from '../controllers/account.controller';
 router.post(
   '/import-csv',
   authMiddleware,
+  tenantIsolation(),
   requireRoles('ACCOUNTANT','ADMIN'),
   upload.single('file'),
   asyncHandler(AccountController.importChartOfAccountsFromCsv)
