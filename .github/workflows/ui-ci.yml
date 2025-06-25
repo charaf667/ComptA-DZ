@@ -4,11 +4,21 @@ on:
   push:
     branches: [ main, dev ]
     paths:
-      - 'ui/**'
+      - 'src/**'
+      - 'public/**'
+      - 'vite.config.ts'
+      - 'tsconfig.json'
+      - 'package.json'
+      - 'package-lock.json'
   pull_request:
     branches: [ main ]
     paths:
-      - 'ui/**'
+      - 'src/**'
+      - 'public/**'
+      - 'vite.config.ts'
+      - 'tsconfig.json'
+      - 'package.json'
+      - 'package-lock.json'
 
 jobs:
   build:
@@ -27,23 +37,23 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
-        cache-dependency-path: 'ui/package-lock.json'
+        cache-dependency-path: 'package-lock.json'
     
     - name: Install dependencies
       run: npm ci
-      working-directory: ./ui
+      working-directory: .
     
     - name: Type check (non bloquant temporaire)
       run: npx tsc --noEmit || echo "Type errors (non bloquant)"
-      working-directory: ./ui
+      working-directory: .
       continue-on-error: true
     
     - name: Run linting
       run: npm run lint
-      working-directory: ./ui
+      working-directory: .
       continue-on-error: true
     
     - name: Build (non bloquant temporaire)
       run: npm run build || echo "Build errors (non bloquant)"
-      working-directory: ./ui
+      working-directory: .
       continue-on-error: true
