@@ -54,6 +54,6 @@ jobs:
       continue-on-error: true
     
     - name: Build (non bloquant temporaire)
-      run: npm run build || echo "Build errors (non bloquant)"
+      run: npm run build || true
       working-directory: .
       continue-on-error: true
