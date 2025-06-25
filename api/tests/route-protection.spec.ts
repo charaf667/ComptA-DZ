@@ -12,6 +12,10 @@ jest.mock('../src/controllers/adaptive-learning.controller', () => ({
 
 jest.mock('../src/controllers/account.controller', () => {
   const getAccounts = jest.fn(async (req, res) => {
+    // Simule RBAC: refuse si pas de rôle ADMIN ou ACCOUNTANT
+    if (!req.user || !['ADMIN', 'ACCOUNTANT'].includes(req.user.role)) {
+      return res.status(403).json({ message: 'Accès interdit: rôle insuffisant' });
+    }
     res.json([]);
   });
   return {
@@ -42,8 +46,8 @@ app.use('/api/accounts', accountRoutes);
 const JWT_SECRET = process.env.JWT_SECRET || 'default_secret';
 const TENANT_1 = '11111111-1111-1111-1111-111111111111';
 const TENANT_2 = '22222222-2222-2222-2222-222222222222';
-const tokenForTenant = (tenantId: string) =>
-  jwt.sign({ user: { id: `user-${tenantId}` }, tenant: { id: tenantId } }, JWT_SECRET, {
+const tokenForTenant = (tenantId: string, role = 'USER') =>
+  jwt.sign({ user: { id: `user-${tenantId}`, role }, tenant: { id: tenantId } }, JWT_SECRET, {
     expiresIn: '1h',
   });
 
@@ -84,7 +88,7 @@ describe('Route protection & multi-tenant isolation', () => {
     it('should call getAccounts with correct tenant', async () => {
       await request(app)
         .get('/api/accounts')
-        .set('Authorization', `Bearer ${tokenForTenant(TENANT_2)}`);
+        .set('Authorization', `Bearer ${tokenForTenant(TENANT_2, 'ADMIN')}`);
 
       const getAccounts = AccountController.getAccounts as jest.Mock;
       expect(getAccounts).toHaveBeenCalled();
