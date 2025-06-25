@@ -122,15 +122,36 @@ jobs:
 
 **Règle : chaque sprint = code, tests, doc, démo**
 
-### Sprint 1 – Détails (Jour 1)
+### Sprint 1 – Détails (Jour 1) - **Terminé**
+
+---
+
+## Sprint 2 – Sécurité, RBAC & Qualité (10 jours)
+
+| Jour | Objectif | Tâches |
+|------|----------|--------|
+| 1 | Kick-off & backlog | • Créer issues GitHub (security, tests, ui) <br>• Branches `feature/rbac-backend`, `feature/admin-role-ui`, `feature/fix-ts-ui` |
+| 2 | RBAC backend | • Middleware rôles (Admin, Accountant, User) <br>• Tests 401/403 <br>• MAJ doc API |
+| 3 | Isolation multi-tenant | • Vérif `tenantId` partout <br>• Tests d’isolation |
+| 4 | Security headers & rate-limit | • `helmet`, `express-rate-limit` <br>• Tests Supertest 429 |
+| 5 | Tests intégration | • Suites Supertest factures/OCR/suggestions <br>• Couverture 70 % |
+| 6 | Couverture 80 % | • Tests services IA/OCR <br>• Badge coverage README |
+| 7 | Admin Role UI | • Page `/admin/roles` (liste, edit) <br>• Guards Admin <br>• Service API roles |
+| 8 | Fix TS UI | • Types manquants, `any`, hooks deps <br>• CI UI doit passer |
+| 9 | QA & Docs | • Scan OWASP ZAP <br>• `SECURITY.md`, CHANGELOG |
+| 10 | Buffer & Release | • Fix restes <br>• Tag `v0.2.0` <br>• Rétrospective |
+
+**Livrables :** RBAC complet API+UI, isolation tenant, rate-limit, couverture ≥ 80 %, CI UI verte, docs sécurité.
 
 | Tâche | Sous-tâches | Statut |
 |-------|-------------|--------|
-| CI/CD GitHub Actions | • Créer `.github/workflows/ci.yml`<br>• Services Postgres, install deps, migrate, tests, lint | ☐ |
-| Scripts seed | • Vérifier `init-db-with-accounts.ts` et `seed-demo-tenants.ts`<br>• Ajouter README sur utilisation | ☐ |
-| Environnement | • Créer `.env.example` avec variables (DB, JWT_SECRET)<br>• Documenter dans README | ☐ |
-| Qualité code | • Vérifier ESLint, Prettier configs<br>• Ajouter badge build & coverage placeholders | ☐ |
-| Documentation onboarding | • Rédiger section "Getting Started" dans README<br>• Mettre à jour `DEV_WORKFLOW.md` si besoin | ☐ |
+| CI/CD GitHub Actions | • Créer `.github/workflows/ci.yml`<br>• Services Postgres, install deps, migrate, tests, lint | [x] |
+| Scripts seed | • Vérifier `init-db-with-accounts.ts` et `seed-demo-tenants.ts`<br>• Ajouter README sur utilisation | [x] |
+| Environnement | • Créer `.env.example` avec variables (DB, JWT_SECRET)<br>• Documenter dans README | [x] |
+| Qualité code | • Vérifier ESLint, Prettier configs<br>• Ajouter badge build & coverage placeholders | [x] |
+| Documentation onboarding | • Rédiger section "Getting Started" dans README<br>• Mettre à jour `DEV_WORKFLOW.md` si besoin | [x] |
+
+**Note** : Les erreurs TypeScript du frontend (20 erreurs, 10 warnings) seront corrigées dans un sprint dédié à l'amélioration UI (Sprint UI Planifié).
 
 > Objectif : à la fin du Jour 1, le repo tourne en CI, seed DB et toutes les commandes `npm run` sont documentées.
 
