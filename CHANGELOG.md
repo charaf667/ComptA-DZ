@@ -9,6 +9,12 @@
 - Ajout des dépendances `supertest` et `@types/supertest` dans `devDependencies`. 
 
 
+### RBAC & Isolation multi-tenant (2025-06-25)
+- Application du middleware `tenantIsolation()` sur toutes les routes sensibles (accounts, accounting-entries, users, notifications, OCR, adaptive-learning).
+- Chaîne de sécurité standardisée : `authMiddleware → tenantIsolation() → requireRoles()`.
+- Mise à jour des routes et imports TypeScript.
+- Tous les tests Jest/Supertest passent après refactorisation.
+
 ### Tests & Documentation (2025-06-24)
 - Tous les tests unitaires existants passent (AccountRepository, AdaptiveLearningService).
 - Correction des mocks et alignement des interfaces (`compteCode`, `scoreConfiance`).
@@ -771,3 +777,15 @@ Ces actions ont permis de restaurer l'affichage, d'améliorer le débogage et d'
 - Intégration du module OCR dans l'interface utilisateur
 - Création des modèles et API pour le plan comptable 10 classes
 - Intégration de la validation de conformité IFRS
+
+## [0.1.0] - 2025-06-25
+### Ajouté
+- **Sprint 1 - CI/CD et Environnement** : 
+  - Workflow CI backend stabilisé avec tests, couverture de code et upload d'artefacts.
+  - Workflow CI UI configuré comme non bloquant temporairement pour prioriser le backend.
+  - Fichier `.env.example` créé avec les variables essentielles.
+  - Roadmap et planification des sprints dans `DEV_WORKFLOW.md`.
+
+### En Cours
+- Documentation onboarding pour setup, seeding et exécution du projet.
+- Planification d'un sprint UI pour corriger les erreurs TypeScript frontend.

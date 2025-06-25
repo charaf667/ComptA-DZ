@@ -131,8 +131,8 @@ jobs:
 | Jour | Objectif | Tâches |
 |------|----------|--------|
 | 1 | Kick-off & backlog | • Créer issues GitHub (security, tests, ui) <br>• Branches `feature/rbac-backend`, `feature/admin-role-ui`, `feature/fix-ts-ui` |
-| 2 | RBAC backend | • Middleware rôles (Admin, Accountant, User) <br>• Tests 401/403 <br>• MAJ doc API |
-| 3 | Isolation multi-tenant | • Vérif `tenantId` partout <br>• Tests d’isolation |
+| 2 | RBAC backend ✅ | • Middleware rôles (Admin, Accountant, User) <br>• Tests 401/403 <br>• MAJ doc API |
+| 3 | Isolation multi-tenant ✅ | • Vérif `tenantId` partout <br>• Tests d’isolation |
 | 4 | Security headers & rate-limit | • `helmet`, `express-rate-limit` <br>• Tests Supertest 429 |
 | 5 | Tests intégration | • Suites Supertest factures/OCR/suggestions <br>• Couverture 70 % |
 | 6 | Couverture 80 % | • Tests services IA/OCR <br>• Badge coverage README |
