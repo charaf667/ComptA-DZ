@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../../contexts/auth/AuthContext';
 import { FiFileText, FiCheckCircle, FiAlertTriangle } from 'react-icons/fi';
 import FileUpload from '../../components/ocr/FileUpload';
 import ExtractedDataDisplay from '../../components/ocr/ExtractedDataDisplay';
@@ -7,11 +8,16 @@ import FeedbackForm from '../../components/ocr/FeedbackForm';
 import ocrService from '../../services/ocr.service';
 import type { ExtractedData } from '../../types/ocr';
 import type { AccountSuggestion, JournalEntry, JournalEntryLine } from '../../types/accounting';
+import type { FeedbackData } from '../../types/ocr';
 import ExtractedDataEditForm from './components/ExtractedDataEditForm';
 
 const OcrPage: React.FC = () => {
+  // Récupérer les informations d'authentification et le tenant
+  const { tenant, user } = useAuth();
+  // Déclaration de tous les états en haut du composant
   const [isLoading, setIsLoading] = useState(false);
   const [activeStep, setActiveStep] = useState(1);
+  const [suggestionStartTime, setSuggestionStartTime] = useState<number | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [extractedData, setExtractedData] = useState<ExtractedData | null>(null);
   const [suggestions, setSuggestions] = useState<AccountSuggestion[]>([]);
@@ -24,6 +30,65 @@ const OcrPage: React.FC = () => {
   const [editingData, setEditingData] = useState<ExtractedData | null>(null);
   const [showEditForm, setShowEditForm] = useState(false);
   const [isEditSaving, setIsEditSaving] = useState(false);
+  const [debugMode, setDebugMode] = useState(false);
+
+  // Création d'une suggestion par défaut si aucune n'est disponible après extraction
+  useEffect(() => {
+    if (suggestions.length === 0 && extractedData) {
+      // Créer une suggestion par défaut basée sur le fournisseur ou utiliser un compte générique
+      const defaultSuggestion = {
+        id: "default",
+        compteCode: "628",  // Charges diverses
+        libelleCompte: "Autres charges externes",
+        classe: 6,
+        scoreConfiance: 0.1,
+        justification: "Suggestion par défaut pour test",
+        type: "CHARGE",
+        category: "EXPENSE"
+      };
+      
+      console.log("[OCR] Création d'une suggestion par défaut pour test:", defaultSuggestion);
+      setSuggestions([defaultSuggestion]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [extractedData]);
+
+  // Sélection automatique de la première suggestion si aucune n'est sélectionnée
+  useEffect(() => {
+    if (suggestions.length > 0 && !selectedSuggestion) {
+      setSelectedSuggestion(suggestions[0]);
+      console.log('[OCR] Première suggestion sélectionnée automatiquement:', suggestions[0]);
+    } else if (suggestions.length === 0) {
+      console.log('[OCR] Aucune suggestion disponible pour sélection automatique.');
+    }
+    // On ne met pas selectedSuggestion dans les dépendances pour éviter une boucle infinie
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suggestions]);
+  /**
+   * 💡 Explication :
+   * - Dès que suggestions change, si le tableau n'est pas vide et qu'aucune suggestion n'est sélectionnée,
+   *   on sélectionne automatiquement la première suggestion.
+   * - Si l'utilisateur a déjà fait un choix, on ne touche à rien.
+   * - On logue les cas pour faciliter le débogage ou l'analyse UX.
+   */
+  // Sélection automatique de la première suggestion si aucune n'est sélectionnée
+  React.useEffect(() => {
+    if (suggestions.length > 0 && !selectedSuggestion) {
+      setSelectedSuggestion(suggestions[0]);
+      console.log('[OCR] Première suggestion sélectionnée automatiquement:', suggestions[0]);
+    } else if (suggestions.length === 0) {
+      console.log('[OCR] Aucune suggestion disponible pour sélection automatique.');
+    }
+    // On ne met pas selectedSuggestion dans les dépendances pour éviter une boucle infinie
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [suggestions]);
+  /**
+   * 💡 Explication :
+   * - Dès que suggestions change, si le tableau n'est pas vide et qu'aucune suggestion n'est sélectionnée,
+   *   on sélectionne automatiquement la première suggestion.
+   * - Si l'utilisateur a déjà fait un choix, on ne touche à rien.
+   * - On logue les cas pour faciliter le débogage ou l'analyse UX.
+   */
 
   const handleFileSelect = async (selectedFile: File) => {
     setFile(selectedFile);
@@ -90,8 +155,26 @@ const OcrPage: React.FC = () => {
       }
       
       setExtractedData(result.extractedData);
-      setSuggestions(result.classification.suggestions);
+      // Conserver les suggestions initiales au cas où les suggestions adaptatives échouent ou sont vides
+      let finalSuggestions = result.classification.suggestions || [];
+      if (result.extractedData) {
+        try {
+          console.log('[OCR] Récupération des suggestions adaptatives...');
+          const adaptiveSuggestions = await ocrService.getAdaptiveSuggestions(result.extractedData);
+          if (adaptiveSuggestions && adaptiveSuggestions.length > 0) {
+            console.log('[OCR] Suggestions adaptatives reçues:', adaptiveSuggestions);
+            finalSuggestions = adaptiveSuggestions;
+          } else {
+            console.log('[OCR] Aucune suggestion adaptative reçue, utilisation des suggestions initiales.');
+          }
+        } catch (adaptiveError) {
+          console.error('[OCR] Erreur lors de la récupération des suggestions adaptatives:', adaptiveError);
+          // En cas d'erreur, on garde les suggestions de processFile (déjà dans finalSuggestions)
+        }
+      }
+      setSuggestions(finalSuggestions);
       setJournalEntry(result.classification.ecritureProposee);
+      setSuggestionStartTime(Date.now()); // Enregistrer l'heure de début pour le temps de décision
       
       if (result.classification.suggestions.length > 0) {
         setSelectedSuggestion(result.classification.suggestions[0]);
@@ -136,21 +219,42 @@ const OcrPage: React.FC = () => {
     setSelectedSuggestion(suggestion);
   };
 
-  const validateAndSave = () => {
+  const validateAndSave = async () => {
     if (!extractedData || !selectedSuggestion) {
       setError('Données insuffisantes pour valider');
       return;
     }
 
-    // Ici, vous pouvez implémenter la logique pour sauvegarder l'écriture comptable
-    // Par exemple, appeler une API pour enregistrer l'écriture dans votre système
-
-    setSuccess('Écriture comptable validée et enregistrée');
-    setActiveStep(3);
-    // Demander le feedback de l'utilisateur après validation
-    setShowFeedbackForm(true);
+    setIsLoading(true);
+    try {
+      // 1. Enregistrer le feedback pour l'apprentissage adaptatif
+      const decisionTime = suggestionStartTime ? Date.now() - suggestionStartTime : 0;
+      const feedbackPayload: FeedbackData = {
+        documentId: extractedData.documentId || '', // Assurer que documentId est présent
+        originalExtractedData: extractedData, // Ajout des données OCR complètes originales
+        initialAISuggestion: suggestions.find(s => s.source !== 'manual' && s.source !== 'adaptive') || suggestions[0] || null, // Prend la première non manuelle/non adaptative, ou la première tout court
+        selectedSuggestion: selectedSuggestion,
+        decisionTimeMs: decisionTime,
+        // userCorrection est géré via FeedbackForm, donc omis ici pour le feedback initial
+      };
+      
+      await ocrService.sendFeedback(feedbackPayload);
+      
+      // 2. Ici, vous pouvez implémenter la logique pour sauvegarder l'écriture comptable
+      // Par exemple, appeler une API pour enregistrer l'écriture dans votre système
+      
+      setSuccess('Écriture comptable validée et enregistrée');
+      setActiveStep(3);
+      // Demander le feedback supplémentaire de l'utilisateur après validation
+      setShowFeedbackForm(true);
+    } catch (error: any) {
+      console.error('Erreur lors de la validation:', error);
+      setError(error.response?.data?.message || 'Erreur lors de la validation');
+    } finally {
+      setIsLoading(false);
+    }
   };
-  
+
   const handleFeedbackSubmit = async (feedbackData: any) => {
     try {
       setIsFeedbackSubmitting(true);
@@ -201,6 +305,7 @@ const OcrPage: React.FC = () => {
           const newClassification = await ocrService.classifyDocument(savedData);
           setSuggestions(newClassification.suggestions);
           setJournalEntry(newClassification.ecritureProposee);
+          setSuggestionStartTime(Date.now()); // Enregistrer l'heure de début pour le temps de décision
         } catch (classifyError) {
           console.error('Erreur lors de la reclassification après modification:', classifyError);
           // Ne pas bloquer le flux principal en cas d'échec de la reclassification
@@ -306,16 +411,68 @@ const OcrPage: React.FC = () => {
           {activeStep >= 2 && extractedData && (
             <>
               <ExtractedDataDisplay data={extractedData} />
-              {!showEditForm && (
-                <div className="mt-4 text-right">
-                  <button
-                    onClick={handleEditData}
-                    className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                  >
-                    Modifier les Données
-                  </button>
+              
+              {/* Boutons d'action */}
+              <div className="flex justify-end space-x-2 mt-4">
+                <button
+                  onClick={handleEditData}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                  disabled={showEditForm}
+                >
+                  Modifier les données
+                </button>
+                <button
+                  onClick={() => setDebugMode(!debugMode)}
+                  className={`px-4 py-2 ${debugMode ? 'bg-orange-600' : 'bg-gray-600'} text-white rounded hover:${debugMode ? 'bg-orange-700' : 'bg-gray-700'} transition-colors`}
+                >
+                  {debugMode ? 'Désactiver Debug' : 'Mode Debug'}
+                </button>
+              </div>
+              
+              {/* Panneau de debug */}
+              {debugMode && (
+                <div className="mt-6 p-6 border rounded-lg bg-white dark:bg-gray-800 shadow-sm">
+                  <h3 className="text-lg font-medium mb-4">Informations de débogage OCR</h3>
+                  
+                  <div className="mb-6">
+                    <h4 className="font-medium mb-2 text-blue-600">Données extraites</h4>
+                    <pre className="text-xs bg-gray-100 dark:bg-gray-900 p-3 rounded overflow-auto max-h-40">
+                      {JSON.stringify(extractedData, null, 2)}
+                    </pre>
+                  </div>
+                  
+                  <div className="mb-6">
+                    <h4 className="font-medium mb-2 text-blue-600">Suggestions de comptes ({suggestions.length})</h4>
+                    {suggestions.length > 0 ? (
+                      <pre className="text-xs bg-gray-100 dark:bg-gray-900 p-3 rounded overflow-auto max-h-40">
+                        {JSON.stringify(suggestions, null, 2)}
+                      </pre>
+                    ) : (
+                      <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+                        <p className="text-yellow-700">Aucune suggestion disponible. Causes possibles :</p>
+                        <ul className="list-disc ml-5 text-yellow-700 text-sm">
+                          <li>Données extraites insuffisantes ou de faible qualité</li>
+                          <li>Aucune correspondance trouvée dans la base de connaissances</li>
+                          <li>Erreur dans le processus de classification</li>
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div>
+                    <h4 className="font-medium mb-2 text-blue-600">Écriture proposée</h4>
+                    {journalEntry ? (
+                      <pre className="text-xs bg-gray-100 dark:bg-gray-900 p-3 rounded overflow-auto max-h-40">
+                        {JSON.stringify(journalEntry, null, 2)}
+                      </pre>
+                    ) : (
+                      <p className="text-gray-500 italic">Aucune écriture proposée disponible</p>
+                    )}
+                  </div>
                 </div>
               )}
+              
+              {/* Formulaire d'édition */}
               {showEditForm && editingData && (
                 <div className="mt-6">
                   {isEditSaving ? (
@@ -333,6 +490,8 @@ const OcrPage: React.FC = () => {
                 </div>
               )}
               <AccountSuggestions
+                // Utiliser le tenantId de l'utilisateur connecté
+                tenantId={tenant?.id || user?.tenantId || "REQUIRED_BUT_MISSING"}
                 suggestions={suggestions}
                 onSelectSuggestion={handleSuggestionSelect}
                 selectedSuggestion={selectedSuggestion || undefined}
@@ -353,7 +512,7 @@ const OcrPage: React.FC = () => {
                   </div>
                   
                   {/* Afficher le formulaire de feedback si nécessaire */}
-                  {showFeedbackForm && extractedData && selectedSuggestion && (
+                  {showFeedbackForm && extractedData && extractedData.documentId && selectedSuggestion && (
                     <div className="mt-6">
                       {isFeedbackSubmitting ? (
                         <div className="p-6 border rounded-lg bg-white dark:bg-gray-800 shadow-sm text-center">
@@ -364,7 +523,8 @@ const OcrPage: React.FC = () => {
                         </div>
                       ) : (
                         <FeedbackForm 
-                          extractedData={extractedData}
+                          documentId={extractedData.documentId}
+                          initialAISuggestionForDoc={suggestions && suggestions.length > 0 ? suggestions[0] : null}
                           selectedSuggestion={selectedSuggestion}
                           onSubmitFeedback={handleFeedbackSubmit}
                           onCancel={handleFeedbackCancel}

@@ -77,18 +77,18 @@ const login = async (req, res) => {
         // Générer le token JWT
         const token = jsonwebtoken_1.default.sign({ user: { id: user.id, role: user.role }, tenant: user.tenantId }, process.env.JWT_SECRET || 'default_secret', { expiresIn: '1d' });
         res.json({
-            message: 'Connexion réussie',
             token,
             user: {
                 id: user.id,
                 nom: user.nom,
                 email: user.email,
                 role: user.role,
-                tenant: {
-                    id: user.tenant.id,
-                    nom: user.tenant.nom,
-                },
+                tenantId: user.tenantId, // Assurer que tenantId est présent
             },
+            tenant: {
+                id: user.tenant.id,
+                nom: user.tenant.nom,
+            }
         });
     }
     catch (error) {

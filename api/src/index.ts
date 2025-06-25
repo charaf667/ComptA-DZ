@@ -1,22 +1,27 @@
 import express, { Request, Response } from 'express';
+import http from 'http';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import webSocketService from './services/websocket.service';
 import prisma from './config/prisma';
+import connectDB from './config/mongoose';
 
 // Import des routes
-import authRoutes from './routes/authRoutes';
-import userRoutes from './routes/userRoutes';
-import tenantRoutes from './routes/tenantRoutes';
-import ocrRoutes from './routes/ocr.routes';
-import documentHistoryRoutes from './routes/document-history.routes';
-import accountingEntriesRoutes from './routes/accounting-entries.routes';
+import apiRoutes from './routes'; // Importe le routeur principal
 
 // Initialisation des variables d'environnement
 dotenv.config();
 
-// Initialisation d'Express
+// Initialisation d'Express et du serveur HTTP
 const app = express();
+const server = http.createServer(app);
 const PORT = process.env.PORT || 4000;
+
+// Initialisation du service WebSocket avec le serveur HTTP
+webSocketService.initialize(server);
+
+// Connexion à MongoDB via Mongoose
+connectDB();
 
 // Middlewares globaux
 app.use(cors());
@@ -38,23 +43,19 @@ app.get('/api/health', async (req: Request, res: Response) => {
   }
 });
 
-// Configuration des routes
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/tenants', tenantRoutes);
-app.use('/api/ocr', ocrRoutes);
-app.use('/api/document-history', documentHistoryRoutes);
-app.use('/api/accounting-entries', accountingEntriesRoutes);
+// Configuration des routes de l'API
+app.use('/api', apiRoutes);
 
 // Middleware de gestion des erreurs 404
 app.use((req: Request, res: Response) => {
   res.status(404).json({ message: 'Route non trouvée' });
 });
 
-// Démarrage du serveur
-app.listen(PORT, () => {
+// Démarrage du serveur HTTP avec support WebSocket
+server.listen(PORT, () => {
   console.log(`Serveur ComptaDZ démarré sur le port ${PORT}`);
   console.log(`API disponible sur http://localhost:${PORT}`);
+  console.log(`WebSocket disponible sur ws://localhost:${PORT}`);
 });
 
 // Gestion de la fermeture propre

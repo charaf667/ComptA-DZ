@@ -1,8 +1,10 @@
-import { createWorker } from 'tesseract.js';
 import * as fs from 'fs-extra';
+import { AccountSuggestion } from './ai-classification.service';
 import * as path from 'path';
 import sharp from 'sharp';
-import pdf from 'pdf-parse';
+// Importer notre nouveau module OCR hybride
+// @ts-ignore: Fichier de déclaration manquant pour le module OCR
+import { extractTextFromInvoice, extractTextFromPdf, extractTextFromImage, ERROR_CODES } from '../utils/ocr/index';
 
 export interface ExtractedData {
   date?: string;
@@ -26,6 +28,7 @@ export interface ExtractedData {
     montantHT?: number;
   }>;
   confidence: number;
+  initialAISuggestion?: AccountSuggestion; // Suggestion initiale faite par l'IA
 }
 
 export class OcrService {
@@ -54,65 +57,106 @@ export class OcrService {
 
   /**
    * Valide un fichier PDF pour s'assurer qu'il n'est pas corrompu
-   * Cette méthode tente de lire le PDF pour détecter les erreurs de structure
-   * comme "bad XRef entry"
+   * Cette méthode utilise notre nouveau module OCR hybride pour une meilleure tolérance aux erreurs
    * @param filePath Chemin du fichier PDF à valider
    * @param isChatGptPdf Indique si le PDF a été généré par ChatGPT
    */
   public async validatePdf(filePath: string, isChatGptPdf: boolean = false): Promise<boolean> {
     try {
-      const dataBuffer = await fs.readFile(filePath);
+      // Pour les PDF générés par ChatGPT ou les autres, nous utilisons une approche unifiée
+      // qui est plus tolérante aux erreurs
+      console.log(`Validation du PDF: ${filePath}${isChatGptPdf ? ' (ChatGPT)' : ''}`);
       
-      if (isChatGptPdf) {
-        // Pour les PDF générés par ChatGPT, nous utilisons une approche différente
-        // Au lieu de valider la structure complète, nous vérifions juste la présence de contenu
-        if (dataBuffer.length > 0) {
-          console.log('PDF généré par ChatGPT détecté, validation simplifiée appliquée');
+      // Vérifier l'existence du fichier
+      await fs.access(filePath);
+      
+      // Vérifier que le fichier n'est pas vide
+      const stats = await fs.stat(filePath);
+      if (stats.size === 0) {
+        throw new Error('Le fichier PDF est vide');
+      }
+      
+      // Notre validation robuste : essayer d'extraire du texte avec notre nouveau module
+      try {
+        // Essayer d'extraire au moins un peu de texte
+        // Cela détectera automatiquement les PDF corrompus
+        await extractTextFromPdf(filePath, { minTextLength: 1 });
+        console.log('PDF validé avec succès par extraction directe');
+        return true;
+      } catch (extractError: any) {
+        // Si l'erreur est liée à un PDF corrompu mais qu'il semble contenir du contenu
+        if (extractError.code === ERROR_CODES.CORRUPTED_PDF || 
+            extractError.code === ERROR_CODES.PDF_EXTRACTION_FAILED) {
+          
+          // On peut quand même tenter l'OCR pour les PDF scannés ou corrompus
+          console.log('PDF potentiellement scanné ou légèrement corrompu, considéré comme valide pour OCR');
           return true;
-        } else {
-          throw new Error('Le fichier PDF est vide');
         }
-      } else {
-        // Approche standard pour les autres PDF
-        try {
-          // Tenter de parser le PDF pour vérifier sa validité
-          await pdf(dataBuffer);
+        
+        // Propager les erreurs liées à l'absence du fichier ou à un format invalide
+        if (extractError.code === ERROR_CODES.FILE_NOT_FOUND || 
+            extractError.code === ERROR_CODES.INVALID_FILE_FORMAT) {
+          throw extractError;
+        }
+        
+        // Pour les autres erreurs, on vérifie manuellement le header PDF
+        const dataBuffer = await fs.readFile(filePath);
+        if (dataBuffer.toString().includes('%PDF-')) {
+          console.log('En-tête PDF détecté, considéré comme valide malgré les erreurs');
           return true;
-        } catch (pdfError: any) {
-          // Si l'erreur est liée à XRef, essayer l'approche alternative
-          if (pdfError.message && pdfError.message.includes('XRef')) {
-            console.log('Erreur XRef détectée, tentative de validation alternative...');
-            // Vérifier simplement que le fichier contient du contenu PDF
-            if (dataBuffer.toString().includes('%PDF-')) {
-              console.log('En-tête PDF détecté, considéré comme valide malgré l\'erreur XRef');
-              return true;
-            }
-          }
-          throw pdfError;
         }
+        
+        // Si aucune méthode ne fonctionne, propager l'erreur
+        throw extractError;
       }
     } catch (error: any) {
-      console.error('Erreur lors de la validation du PDF:', error.message);
-      throw new Error(`PDF invalide: ${error.message}`);
+      // Formatter l'erreur pour l'API
+      const errorMessage = error.code ? `${error.message} (${error.code})` : error.message;
+      console.error('Erreur lors de la validation du PDF:', errorMessage);
+      throw new Error(`PDF invalide: ${errorMessage}`);
     }
   }
 
   private async extractTextFromPdf(filePath: string): Promise<string> {
-    const dataBuffer = await fs.readFile(filePath);
-    const data = await pdf(dataBuffer);
-    return data.text;
+    try {
+      // Utiliser l'extracteur de texte du nouveau module OCR
+      console.log(`Tentative d'extraction de texte depuis le PDF: ${filePath}`);
+      return await extractTextFromPdf(filePath, { minTextLength: 30 });
+    } catch (error: any) {
+      // Si le fichier est corrompu ou que l'extraction directe échoue, utiliser la méthode OCR
+      if (error.code && [
+        ERROR_CODES.CORRUPTED_PDF,
+        ERROR_CODES.PDF_EXTRACTION_FAILED,
+        ERROR_CODES.EMPTY_TEXT_RESULT
+      ].includes(error.code)) {
+        console.log(`Échec de l'extraction directe du PDF, basculement vers OCR: ${error.message}`);
+        // Utiliser la méthode OCR du nouveau module
+        return await extractTextFromInvoice(filePath, {
+          languages: this.langOptions,
+          dpi: 300,
+          preprocess: {
+            grayscale: true,
+            normalize: true,
+            sharpen: true
+          }
+        });
+      }
+      // Propager les autres erreurs
+      throw error;
+    }
   }
 
   private async extractTextFromImage(imagePath: string): Promise<string> {
-    const worker = await createWorker();
-    await worker.loadLanguage(this.langOptions);
-    await worker.initialize(this.langOptions);
-    
-    const preprocessedImagePath = await this.preprocessImage(imagePath);
-    const { data: { text } } = await worker.recognize(preprocessedImagePath);
-    await worker.terminate();
-    await fs.remove(preprocessedImagePath);
-    return text;
+    console.log(`Traitement OCR de l'image: ${imagePath}`);
+    // Utiliser l'extracteur d'image du nouveau module OCR
+    return await extractTextFromImage(imagePath, {
+      languages: this.langOptions,
+      preprocess: {
+        grayscale: true,
+        normalize: true,
+        sharpen: true
+      }
+    });
   }
 
   /**
@@ -288,17 +332,51 @@ export class OcrService {
     return articles;
   }
 
+  /**
+   * Extrait les données d'un fichier (PDF ou image) avec notre approche hybride robuste
+   * @param filePath Chemin du fichier à traiter
+   * @returns Données structurées extraites du document
+   */
   public async extractDataFromFile(filePath: string): Promise<ExtractedData> {
     const fileExt = path.extname(filePath).toLowerCase();
     let text = '';
-    if (fileExt === '.pdf') {
-      text = await this.extractTextFromPdf(filePath);
-    } else if (['.jpg', '.jpeg', '.png', '.tiff', '.bmp'].includes(fileExt)) {
-      text = await this.extractTextFromImage(filePath);
-    } else {
-      throw new Error(`Format de fichier non supporté: ${fileExt}`);
+    
+    try {
+      // Utiliser directement la fonction principale de notre module OCR hybride
+      // Elle gère automatiquement les différents formats et implémente le fallback
+      console.log(`Extraction de données depuis: ${filePath} (${fileExt})`);
+      text = await extractTextFromInvoice(filePath, {
+        languages: this.langOptions,
+        minTextLength: 30,
+        dpi: 300,
+        preprocess: {
+          grayscale: true,
+          normalize: true,
+          sharpen: true
+        }
+      });
+      
+      console.log(`Extraction réussie: ${text.length} caractères`);
+      
+      // Si le texte est trop court, lancer une erreur
+      if (text.length < 10) {
+        throw new Error('Texte extrait trop court ou vide');
+      }
+      
+      // Analyser le texte pour extraire les données structurées
+      return this.parseText(text);
+      
+    } catch (error: any) {
+      // Log détaillé pour faciliter le débogage
+      console.error(`Erreur lors de l'extraction depuis ${fileExt}:`, error);
+      
+      // Propager l'erreur avec un message plus convivial
+      if (error.code && error.code.startsWith('OCR_')) {
+        throw new Error(`Erreur d'extraction: ${error.message}`);
+      } else {
+        throw new Error(`Format de fichier non supporté ou extraction impossible: ${fileExt}`);
+      }
     }
-    return this.parseText(text);
   }
 
   /**

@@ -1,6 +1,8 @@
 /**
  * Données extraites d'un document par OCR
  */
+import type { AccountSuggestion } from '../types/accounting';
+
 export interface ExtractedData {
   // Champs originaux (compatibilité avec le code existant)
   date?: string;
@@ -44,17 +46,13 @@ export interface ExtractedData {
  * Données de feedback de l'utilisateur pour l'apprentissage adaptatif
  */
 export interface FeedbackData {
-  isCorrect: boolean;
-  comments?: string;
-  extractedData: ExtractedData;
-  selectedAccount: {
-    compteCode: string;
-    libelleCompte: string;
-    classe: number;
-    scoreConfiance: number;
-  };
-  corrections?: {
-    field: string;
-    value: string;
-  }[];
+  documentId: string; // ID du document traité
+  originalExtractedData: ExtractedData; // Les données OCR complètes utilisées pour la suggestion initiale
+  initialAISuggestion: AccountSuggestion | null; // La suggestion initiale de l'IA (peut être null)
+  selectedSuggestion: AccountSuggestion | null; // La suggestion finalement sélectionnée par l'utilisateur (peut être null si aucune sélection)
+  userCorrection?: string; // Commentaires ou corrections textuelles de l'utilisateur
+  decisionTimeMs?: number; // Temps pris par l'utilisateur pour prendre une décision (en millisecondes)
+  // Les champs comme 'isCorrect', 'extractedData' (dans le corps du feedback), et 'corrections' détaillées par champ
+  // ne sont pas actuellement envoyés par OcrPage.validateAndSave ou explicitement requis par le backend pour le feedback.
+  // Ils peuvent être ajoutés ultérieurement si nécessaire.
 }

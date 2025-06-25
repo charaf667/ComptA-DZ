@@ -117,7 +117,7 @@ interface AIClassification {
 ```
 
 ### 2. Apprentissage adaptatif
-- **Feedback utilisateur** : correction = amélioration modèle
+- **Feedback utilisateur** : correction = amélioration modèle (logique de suivi des suggestions acceptées/rejetées en place)
 - **Patterns entreprise** : apprend les habitudes comptables spécifiques
 - **Historique** : utilise les écritures passées pour suggestions
 
@@ -132,7 +132,7 @@ interface AIClassification {
 ```
 /src/services/ai/
 ├── classification.service.ts    # Classification écritures
-├── learning.service.ts         # Apprentissage adaptatif  
+├── learning.service.ts         # Apprentissage adaptatif (métriques de base implémentées)  
 ├── ifrs-validation.service.ts  # Validation IFRS
 ├── pattern-recognition.service.ts # Reconnaissance patterns
 └── suggestion.service.ts       # Moteur suggestions

@@ -6,12 +6,14 @@
 /**
  * Statut d'une assignation
  */
-export enum AssignmentStatus {
-  PENDING = 'pending',
-  IN_PROGRESS = 'in_progress',
-  COMPLETED = 'completed',
-  CANCELLED = 'cancelled'
-}
+export const AssignmentStatus = {
+  PENDING: 'pending',
+  IN_PROGRESS: 'in_progress',
+  COMPLETED: 'completed',
+  CANCELLED: 'cancelled'
+} as const;
+
+export type AssignmentStatus = typeof AssignmentStatus[keyof typeof AssignmentStatus];
 
 /**
  * Modèle pour un commentaire sur un document

@@ -37,10 +37,13 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.OcrController = void 0;
+const event_service_1 = __importDefault(require("../services/event.service"));
+const event_service_2 = require("../services/event.service");
 const path = __importStar(require("path"));
 const fs = __importStar(require("fs-extra"));
 const ocr_service_1 = __importDefault(require("../services/ocr.service"));
 const ai_classification_service_1 = __importDefault(require("../services/ai-classification.service"));
+const adaptive_learning_service_1 = __importDefault(require("../services/adaptive-learning.service"));
 class OcrController {
     /**
      * Traite un fichier uploadé pour en extraire les données
@@ -90,10 +93,15 @@ class OcrController {
                 res.status(400).json({ success: false, message: 'Données extraites manquantes' });
                 return;
             }
-            const classification = ai_classification_service_1.default.classifyDocument(extractedData);
+            const classificationResult = ai_classification_service_1.default.classifyDocument(extractedData);
+            // Enrichir extractedData avec la meilleure suggestion initiale
+            if (classificationResult.suggestions && classificationResult.suggestions.length > 0) {
+                extractedData.initialAISuggestion = classificationResult.suggestions[0];
+            }
             res.status(200).json({
                 success: true,
-                data: classification
+                extractedData, // Retourner extractedData enrichi
+                classification: classificationResult
             });
         }
         catch (error) {
@@ -177,11 +185,15 @@ class OcrController {
             // Extraction des données du fichier
             const extractedData = await ocr_service_1.default.extractDataFromFile(filePath);
             // Classification des données extraites
-            const classification = ai_classification_service_1.default.classifyDocument(extractedData);
+            const classificationResult = ai_classification_service_1.default.classifyDocument(extractedData);
+            // Enrichir extractedData avec la meilleure suggestion initiale
+            if (classificationResult.suggestions && classificationResult.suggestions.length > 0) {
+                extractedData.initialAISuggestion = classificationResult.suggestions[0];
+            }
             res.status(200).json({
                 success: true,
-                extractedData,
-                classification
+                extractedData, // extractedData est maintenant enrichi
+                classification: classificationResult
             });
         }
         catch (error) {
@@ -221,12 +233,37 @@ class OcrController {
             }
             // Enregistrer le feedback dans le service de classification IA
             ai_classification_service_1.default.recordUserFeedback(extractedData, selectedAccount);
+            // Emit event for OCR feedback submission
+            try {
+                // S'assurer que req.user et req.user.id sont disponibles (via le middleware d'authentification)
+                if (req.user && req.user.id) {
+                    const userId = req.user.id;
+                    const tenantId = req.user.tenantId || null;
+                    let userName = req.user.nom; // Supposant que 'nom' (name) est sur req.user
+                    const docId = extractedData.documentId || null;
+                    const docName = extractedData.numeroFacture || extractedData.reference || (docId ? `Document ${docId}` : 'Document inconnu');
+                    const eventData = {
+                        userId: userId,
+                        userName: userName,
+                        tenantId: tenantId,
+                        documentId: docId,
+                        documentName: docName,
+                    };
+                    event_service_1.default.emit(event_service_2.EventType.OCR_FEEDBACK_SUBMITTED, eventData);
+                }
+                else {
+                    console.warn('User information not available in request (req.user.id missing), skipping OCR feedback notification.');
+                }
+            }
+            catch (eventError) {
+                console.error('Failed to emit OCR_FEEDBACK_SUBMITTED event:', eventError);
+            }
             res.status(200).json({
                 success: true,
                 message: 'Feedback enregistré avec succès'
             });
         }
-        catch (error) {
+        catch (error) { // Ceci est le bloc catch original pour l'opération principale
             console.error('Erreur lors de l\'enregistrement du feedback:', error);
             res.status(500).json({
                 success: false,
@@ -278,6 +315,59 @@ class OcrController {
             res.status(500).json({
                 success: false,
                 message: 'Une erreur est survenue lors de la sauvegarde des données modifiées',
+                error: error instanceof Error ? error.message : String(error)
+            });
+        }
+    }
+    /**
+     * Récupère les patterns d'apprentissage adaptatif
+     * @param req Requête HTTP
+     * @param res Réponse HTTP
+     */
+    async getLearningPatterns(req, res) {
+        try {
+            // Paramètres optionnels de filtrage
+            const { accountCode, minConfidence, minOccurrences, limit } = req.query;
+            // Récupérer les patterns
+            const patterns = adaptive_learning_service_1.default.getPatterns({
+                accountCode: accountCode,
+                minConfidence: minConfidence ? parseFloat(minConfidence) : undefined,
+                minOccurrences: minOccurrences ? parseInt(minOccurrences) : undefined,
+                limit: limit ? parseInt(limit) : undefined
+            });
+            res.status(200).json({
+                success: true,
+                count: patterns.length,
+                data: patterns
+            });
+        }
+        catch (error) {
+            console.error('Erreur lors de la récupération des patterns d\'apprentissage:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Une erreur est survenue lors de la récupération des patterns d\'apprentissage',
+                error: error instanceof Error ? error.message : String(error)
+            });
+        }
+    }
+    /**
+     * Récupère les métriques de performance
+     * @param req Requête HTTP
+     * @param res Réponse HTTP
+     */
+    async getPerformanceMetrics(req, res) {
+        try {
+            const metrics = adaptive_learning_service_1.default.getPerformanceMetrics();
+            res.status(200).json({
+                success: true,
+                data: metrics
+            });
+        }
+        catch (error) {
+            console.error('Erreur lors de la récupération des métriques de performance:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Une erreur est survenue lors de la récupération des métriques de performance',
                 error: error instanceof Error ? error.message : String(error)
             });
         }

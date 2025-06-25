@@ -1,4 +1,25 @@
-import { Outlet } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { lazy, Suspense } from 'react';
+
+// Importer les composants de page d'authentification
+const Login = lazy(() => import('../pages/auth/Login').catch(error => {
+  console.error('Erreur de chargement du module Login:', error);
+  return { default: () => <div>Erreur de chargement de la page de connexion</div> };
+}));
+const Register = lazy(() => import('../pages/auth/Register').catch(error => {
+  console.error('Erreur de chargement du module Register:', error);
+  return { default: () => <div>Erreur de chargement de la page d\'inscription</div> };
+}));
+const ForgotPassword = lazy(() => import('../pages/auth/ForgotPassword').catch(error => {
+  console.error('Erreur de chargement du module ForgotPassword:', error);
+  return { default: () => <div>Erreur de chargement de la page de récupération de mot de passe</div> };
+}));
+
+const LoadingFallback = () => (
+  <div className="flex items-center justify-center h-full">
+    <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-primary-500"></div>
+  </div>
+);
 
 /**
  * Layout pour les pages d'authentification
@@ -46,7 +67,15 @@ const AuthLayout = () => {
       {/* Colonne droite avec le formulaire */}
       <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
         <div className="w-full max-w-md">
-          <Outlet />
+          <Suspense fallback={<LoadingFallback />}>
+            <Routes>
+              <Route path="login" element={<Login />} />
+              <Route path="register" element={<Register />} />
+              <Route path="forgot-password" element={<ForgotPassword />} />
+              <Route index element={<Navigate to="login" replace />} />
+              <Route path="*" element={<Navigate to="login" replace />} /> {/* Redirection pour toute sous-route inconnue de /auth */}
+            </Routes>
+          </Suspense>
         </div>
       </div>
     </div>

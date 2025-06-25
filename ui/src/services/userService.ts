@@ -15,6 +15,13 @@ export interface PasswordChangeData {
   newPassword: string;
 }
 
+// Type pour la réponse du service
+export interface ServiceResponse<T> {
+  success: boolean;
+  message: string;
+  data?: T;
+}
+
 /**
  * Service de gestion des utilisateurs
  */
@@ -57,16 +64,23 @@ class UserService {
    * @param data - Données de changement de mot de passe
    * @returns Une promesse contenant un message de succès
    */
-  async changePassword(data: PasswordChangeData): Promise<{ message: string }> {
-    try {
-      const response = await api.post<{ message: string }>('/users/change-password', data);
-      return response.data;
-    } catch (error: any) {
-      if (error.response) {
-        throw new Error(error.response.data.message || 'Échec du changement de mot de passe');
+  async changePassword(data: PasswordChangeData): Promise<ServiceResponse<boolean>> {
+    async function changePassword(userId: string, newPassword: string): Promise<ServiceResponse<boolean>> {
+      if (!isValidPassword(newPassword)) {
+        return { success: false, message: 'Mot de passe invalide' };
       }
-      throw new Error('Impossible de se connecter au serveur');
+      try {
+        const response = await api.post<ServiceResponse<boolean>>('/users/change-password', { userId, newPassword });
+        return response.data;
+      } catch (error: any) {
+        if (error.response) {
+          throw new Error(error.response.data.message || 'Échec du changement de mot de passe');
+        }
+        throw new Error('Impossible de se connecter au serveur');
+      }
     }
+
+    return changePassword('currentUserId', data.newPassword);
   }
 
   /**
@@ -92,6 +106,12 @@ class UserService {
       }
       throw new Error('Impossible de se connecter au serveur');
     }
+  }
+
+  private isValidPassword(password: string): boolean {
+    // Implémenter la logique de validation du mot de passe ici
+    // Par exemple, vérifier la longueur, les caractères spéciaux, les chiffres, etc.
+    return true; // À remplacer par la logique de validation réelle
   }
 }
 

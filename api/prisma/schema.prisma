@@ -1,6 +1,3 @@
-// Prisma schema pour ComptaDZ – SaaS multi-tenant
-// https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -8,6 +5,108 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id                 String                   @id @default(uuid())
+  nom                String
+  createdAt          DateTime                 @default(now())
+  etats              EtatFinancier[]
+  factures           Facture[]
+  users              User[]
+  accounts           Account[]
+  learningPatterns   LearningPattern[]
+  performanceMetrics TenantPerformanceMetrics?
+}
+
+model User {
+  id         String   @id @default(uuid())
+  tenantId   String
+  nom        String
+  email      String   @unique
+  password   String
+  role       Role
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  modifiePar String?
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+model Facture {
+  id           String         @id @default(uuid())
+  tenantId     String
+  numero       String         @unique
+  dateFacture  DateTime
+  montantTotal Float
+  statut       StatutFacture  @default(BROUILLON)
+  ocrTexte     String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  modifiePar   String?
+  erreursOCR   ErreurOCR[]
+  tenant       Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  lignes       LigneFacture[]
+}
+
+model LigneFacture {
+  id           String   @id @default(uuid())
+  factureId    String
+  description  String
+  quantite     Int
+  prixUnitaire Float
+  totalLigne   Float
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  modifiePar   String?
+  facture      Facture  @relation(fields: [factureId], references: [id], onDelete: Cascade)
+}
+
+model Account {
+  id              String           @id @default(uuid())
+  tenantId        String
+  code            String
+  label           String
+  classe          Int
+  type            TypeCompte
+  category        CategorieCompte  @default(DETAIL)
+  parentId        String?
+  isActive        Boolean          @default(true)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  modifiePar      String?
+  parent          Account?         @relation("ParentChild", fields: [parentId], references: [id])
+  children        Account[]        @relation("ParentChild")
+  tenant          Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  learningPatterns LearningPattern[]
+
+  @@unique([code, tenantId])
+  @@index([classe, tenantId])
+  @@map("accounts")
+}
+
+model EtatFinancier {
+  id          String   @id @default(uuid())
+  tenantId    String
+  typeRapport String
+  contenuJson Json
+  dateGen     DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  modifiePar  String?
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+model ErreurOCR {
+  id           String   @id @default(uuid())
+  factureId    String
+  champErrone  String
+  texteReconnu String
+  texteCorrige String?
+  statutCorr   String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  modifiePar   String?
+  facture      Facture  @relation(fields: [factureId], references: [id], onDelete: Cascade)
 }
 
 enum Role {
@@ -23,92 +122,47 @@ enum StatutFacture {
   REJETEE
 }
 
-model Tenant {
-  id         String    @id @default(uuid())
-  nom        String
-  users      User[]
-  factures   Facture[]
-  plans      PlanComptable[]
-  etats      EtatFinancier[]
-  createdAt  DateTime  @default(now())
+enum TypeCompte {
+  DEBIT
+  CREDIT
 }
 
-model User {
-  id          String   @id @default(uuid())
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  tenantId    String
-  nom         String
-  email       String   @unique
-  password    String
-  role        Role
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  modifiePar  String?
+enum CategorieCompte {
+  DETAIL
+  COLLECTIF
 }
 
-model Facture {
-  id          String        @id @default(uuid())
-  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  tenantId    String
-  numero      String        @unique
-  dateFacture DateTime
-  montantTotal Float
-  statut      StatutFacture @default(BROUILLON)
-  ocrTexte    String?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-  modifiePar  String?
-  lignes      LigneFacture[]
-  erreursOCR  ErreurOCR[]
-}
-
-model LigneFacture {
-  id           String    @id @default(uuid())
-  facture      Facture   @relation(fields: [factureId], references: [id], onDelete: Cascade)
-  factureId    String
-  description  String
-  quantite     Int
-  prixUnitaire Float
-  totalLigne   Float
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  modifiePar   String?
-}
-
-model PlanComptable {
-  id          String    @id @default(uuid())
-  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  tenantId    String
-  codeCompte  String
-  nomCompte   String
-  typeCompte  String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  modifiePar  String?
-}
-
-model EtatFinancier {
-  id           String    @id @default(uuid())
-  tenant       Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+model LearningPattern {
+  id           String   @id @default(uuid())
   tenantId     String
-  typeRapport  String
-  contenuJson  Json
-  dateGen      DateTime  @default(now())
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  modifiePar   String?
+  accountId    String   // Foreign key to Account.id
+  pattern      String   // The text pattern, e.g., "Facture Orange"
+  accountCode  String   // Denormalized account code for easier querying/display
+  occurrences  Int      @default(1)
+  lastUsed     DateTime @updatedAt // Automatically updated on modification
+  confidence   Float    // Confidence score of this pattern
+  createdAt    DateTime @default(now())
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade) // Assumes if an account is deleted, related patterns are less relevant
+
+  @@unique([tenantId, pattern, accountId]) // A pattern for a specific account should be unique per tenant
+  @@index([tenantId, accountId])
+  @@map("learning_patterns")
 }
 
-model ErreurOCR {
-  id            String   @id @default(uuid())
-  facture       Facture  @relation(fields: [factureId], references: [id], onDelete: Cascade)
-  factureId     String
-  champErrone   String
-  texteReconnu  String
-  texteCorrige  String?
-  statutCorr    String   // exemple : 'non corrigé', 'corrigé'
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  modifiePar    String?
-}
+model TenantPerformanceMetrics {
+  id                    String   @id @default(uuid())
+  tenantId              String   @unique // Each tenant has one set of performance metrics
+  totalSuggestions      Int      @default(0)
+  acceptedSuggestions   Int      @default(0)
+  rejectedSuggestions   Int      @default(0)
+  averageDecisionTimeMs Float    @default(0)
+  explanationsData      Json     // Stores the 'PerformanceMetrics.explanations' object from your service
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt // To track when metrics were last updated
 
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_performance_metrics")
+}

@@ -1,41 +1,22 @@
 import React, { useState } from 'react';
 import { FiThumbsUp, FiThumbsDown, FiSend, FiEdit } from 'react-icons/fi';
 
-// Définition des types temporaires en attendant que les imports fonctionnent
-interface ExtractedData {
-  // Champs de base requis pour le feedback
-  [key: string]: any;
-  confidence: number;
-}
-
-interface AccountSuggestion {
-  compteCode: string;
-  libelleCompte: string;
-  classe: number;
-  scoreConfiance: number;
-  justification: string;
-}
+import type { AccountSuggestion } from '../../types/accounting';
+import type { FeedbackData as GlobalFeedbackData } from '../../types/ocr';
+import ExplanationPanel from '../ai/ExplanationPanel';
+import type { ExplanationMetrics } from '../../types/explanation';
 
 interface FeedbackFormProps {
-  extractedData: ExtractedData;
-  selectedSuggestion: AccountSuggestion;
-  onSubmitFeedback: (feedback: FeedbackData) => Promise<void>;
+  documentId: string; // ID du document, requis pour GlobalFeedbackData
+  initialAISuggestionForDoc: AccountSuggestion | null; // Suggestion IA originale pour ce document
+  selectedSuggestion: AccountSuggestion | null; // Suggestion actuellement en focus dans le formulaire
+  onSubmitFeedback: (feedback: GlobalFeedbackData, explanationFeedback?: ExplanationMetrics) => Promise<void>;
   onCancel: () => void;
 }
 
-export interface FeedbackData {
-  isCorrect: boolean;
-  comments: string;
-  extractedData: ExtractedData;
-  selectedAccount: AccountSuggestion;
-  corrections?: {
-    field: string;
-    value: string;
-  }[];
-}
-
 const FeedbackForm: React.FC<FeedbackFormProps> = ({
-  extractedData,
+  documentId,
+  initialAISuggestionForDoc,
   selectedSuggestion,
   onSubmitFeedback,
   onCancel
@@ -46,6 +27,7 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCorrectionForm, setShowCorrectionForm] = useState(false);
   const [currentCorrection, setCurrentCorrection] = useState({ field: '', value: '' });
+  const [explanationFeedback, setExplanationFeedback] = useState<ExplanationMetrics | null>(null);
 
   const handleSubmit = async () => {
     if (isCorrect === null) {
@@ -55,17 +37,28 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({
 
     setIsSubmitting(true);
     try {
-      await onSubmitFeedback({
-        isCorrect,
-        comments,
-        extractedData,
-        selectedAccount: selectedSuggestion,
-        corrections: corrections.length > 0 ? corrections : undefined
-      });
+      const feedbackToSend: GlobalFeedbackData = {
+        documentId: documentId,
+        initialAISuggestion: initialAISuggestionForDoc,
+        selectedSuggestion: selectedSuggestion, // La suggestion sur laquelle le feedback est donné
+        userCorrection: comments ? comments : undefined, // comments de l'état du formulaire
+        // decisionTimeMs est optionnel et non pertinent pour ce feedback post-décision
+      };
+      
+      // Si nous avons un feedback sur l'explication, l'envoyer également
+      await onSubmitFeedback(
+        feedbackToSend, 
+        explanationFeedback ? {
+          ...explanationFeedback,
+          suggestionAccepted: isCorrect // Mettre à jour avec le choix final de l'utilisateur
+        } : undefined
+      );
+      
       // Réinitialiser le formulaire après soumission réussie
       setIsCorrect(null);
       setComments('');
       setCorrections([]);
+      setExplanationFeedback(null);
     } catch (error) {
       console.error('Erreur lors de la soumission du feedback:', error);
     } finally {
@@ -78,6 +71,22 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({
       setCorrections([...corrections, { ...currentCorrection }]);
       setCurrentCorrection({ field: '', value: '' });
     }
+  };
+  
+  // Gestion du feedback sur les explications IA
+  const handleExplanationFeedback = (feedback: {
+    explanationHelpful: boolean;
+    explanationType: string;
+    suggestionAccepted: boolean;
+    comments?: string;
+  }) => {
+    // Conversion du format du feedback pour correspondre à notre type ExplanationMetrics
+    setExplanationFeedback({
+      isHelpful: feedback.explanationHelpful,
+      explanationType: feedback.explanationType,
+      suggestionAccepted: feedback.suggestionAccepted,
+      comments: feedback.comments
+    });
   };
 
   return (
@@ -187,6 +196,19 @@ const FeedbackForm: React.FC<FeedbackFormProps> = ({
               )}
             </div>
           )}
+        </div>
+      )}
+      
+      {/* Panneau d'explication IA */}
+      {selectedSuggestion?.explanationSummary && (
+        <div className="mb-6">
+          <ExplanationPanel
+            explanationSummary={selectedSuggestion.explanationSummary}
+            explanationDetails={selectedSuggestion.explanationDetails}
+            explanationFactors={selectedSuggestion.explanationFactors}
+            onFeedback={handleExplanationFeedback}
+            expanded={false}
+          />
         </div>
       )}
       

@@ -1,15 +1,15 @@
 # Guide Complet IFRS - SaaS Comptabilité PME Algériennes
 
-## 🎯 Résumé Exécutif
+## Résumé Exécutif
 
-Les **10 classes IFRS** organisent tous les comptes d'une entreprise selon leur nature économique. Chaque transaction génère des **écritures comptables** qui affectent au minimum 2 comptes (principe de la partie double). Votre moteur de suggestion analysera les documents pour proposer automatiquement les comptes IFRS appropriés.
+Les **7 classes IFRS** organisent tous les comptes d'une entreprise selon leur nature économique. Chaque transaction génère des **écritures comptables** qui affectent au minimum 2 comptes (principe de la partie double). Votre moteur de suggestion analysera les documents pour proposer automatiquement les comptes IFRS appropriés.
 
 ### Principe de base
 ```
 Document importé → Analyse (OCR/IA) → Suggestion classe/compte → Validation → Écriture comptable
 ```
 
-## 📊 Tableau des 10 Classes IFRS
+## Tableau des 7 Classes IFRS
 
 | Classe | Libellé | Nature | Exemples de comptes | Cas d'usage typiques |
 |--------|---------|--------|-------------------|-------------------|
@@ -20,11 +20,8 @@ Document importé → Analyse (OCR/IA) → Suggestion classe/compte → Validati
 | **5** | **Financiers** | Trésorerie | 512-Banques<br>530-Caisse<br>164-Emprunts | Encaissements<br>Décaissements<br>Emprunts |
 | **6** | **Charges** | Coûts/Dépenses | 601-Achats<br>613-Électricité<br>641-Salaires<br>681-Amortissements | Factures fournisseurs<br>Services<br>Salaires |
 | **7** | **Produits** | Revenus | 701-Ventes<br>706-Prestations<br>765-Produits financiers | Ventes clients<br>Services rendus |
-| **8** | **Spéciaux** | Exceptionnels | 801-Résultat exceptionnel<br>870-Reprises provisions | Opérations rares<br>Provisions |
-| **9** | **Analytiques** | Contrôle gestion | 901-Centre coût A<br>910-Section production | Analyse coûts<br>Budgets |
-| **10** | **Consolidation** | Comptes de groupe | Éliminations<br>Retraitements | Comptes consolidés<br>Filiales |
 
-## 🗄️ Structure Base de Données PostgreSQL
+## Structure Base de Données PostgreSQL
 
 ### Schéma simplifié optimisé
 
@@ -36,7 +33,7 @@ CREATE TABLE comptes_ifrs (
     id SERIAL PRIMARY KEY,
     code_compte VARCHAR(10) NOT NULL UNIQUE,
     libelle VARCHAR(255) NOT NULL,
-    classe INTEGER NOT NULL CHECK (classe BETWEEN 1 AND 10),
+    classe INTEGER NOT NULL CHECK (classe BETWEEN 1 AND 7),
     nature ENUM('debit', 'credit') NOT NULL,
     type_compte ENUM('detail', 'collectif') DEFAULT 'detail',
     compte_parent VARCHAR(10) REFERENCES comptes_ifrs(code_compte),

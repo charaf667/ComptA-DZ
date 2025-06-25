@@ -25,6 +25,7 @@ export interface CreateCommentRequest {
   createdBy: string;
   content: string;
   parentId?: string;
+  documentOwner?: string; // Propriétaire du document pour les notifications
 }
 
 /**

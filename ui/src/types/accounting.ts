@@ -1,13 +1,21 @@
+import type { ExplanationDetail, ExplanationFactor } from './explanation';
+
 /**
  * Représente une suggestion de compte comptable avec son score de confiance
  */
 export interface AccountSuggestion {
   compteCode: string;
   libelleCompte: string;
-  classe: number;
-  scoreConfiance: number;
-  justification: string;
+  classe?: number; // Rendu optionnel
+  scoreConfiance?: number; // Rendu optionnel
+  justification?: string; // Rendu optionnel
   source?: 'classification' | 'adaptive' | 'manual' | 'supplier';
+  isManualSelection?: boolean; // Ajouté pour les sélections manuelles
+  
+  // Champs pour l'IA explicable
+  explanationDetails?: ExplanationDetail[];
+  explanationFactors?: ExplanationFactor[];
+  explanationSummary?: string;
 }
 
 /**

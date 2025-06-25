@@ -12,6 +12,7 @@ import {
   GetAssignmentsOptions,
   AssignmentStatus
 } from '../models/document-collaboration.model';
+import eventService, { EventType } from './event.service';
 
 /**
  * Service de gestion des fonctionnalités de collaboration
@@ -126,6 +127,15 @@ class DocumentCollaborationService {
     // Sauvegarder les données
     this.writeComments(data);
     
+    // Émettre un événement pour notifier les utilisateurs concernés
+    eventService.emit(EventType.COMMENT_CREATED, {
+      documentId: newComment.documentId,
+      commentId: newComment.id,
+      content: newComment.content,
+      createdBy: newComment.createdBy,
+      documentOwner: commentData.documentOwner || ''
+    });
+    
     return newComment;
   }
   
@@ -170,7 +180,7 @@ class DocumentCollaborationService {
   /**
    * Met à jour un commentaire existant
    */
-  async updateComment(commentId: string, updateData: UpdateCommentRequest): Promise<DocumentComment | null> {
+  async updateComment(commentId: string, updateData: UpdateCommentRequest, updatedBy?: string): Promise<DocumentComment | null> {
     const data = this.readComments();
     let updatedComment: DocumentComment | null = null;
     
@@ -184,10 +194,26 @@ class DocumentCollaborationService {
         
         updatedComment = {
           ...comment,
-          content: updateData.content !== undefined ? updateData.content : comment.content,
-          isResolved: updateData.isResolved !== undefined ? updateData.isResolved : comment.isResolved,
           updatedAt: new Date().toISOString()
         };
+        
+        if (updateData.content !== undefined) {
+          updatedComment.content = updateData.content;
+        }
+        
+        if (updateData.isResolved !== undefined) {
+          updatedComment.isResolved = updateData.isResolved;
+          
+          // Si le commentaire est marqué comme résolu, émettre un événement
+          if (updateData.isResolved && updatedBy) {
+            eventService.emit(EventType.COMMENT_RESOLVED, {
+              documentId,
+              commentId,
+              resolvedBy: updatedBy,
+              commentAuthor: comment.createdBy
+            });
+          }
+        }
         
         data[documentId][commentIndex] = updatedComment;
         this.writeComments(data);
@@ -230,6 +256,17 @@ class DocumentCollaborationService {
     // Récupérer les assignations existantes du document ou initialiser un tableau vide
     const documentAssignments = data[assignmentData.documentId] || [];
     
+    // Vérifier si l'utilisateur est déjà assigné à ce document
+    const existingAssignment = documentAssignments.find(
+      a => a.assignedTo === assignmentData.assignedTo && 
+           a.status !== AssignmentStatus.COMPLETED && 
+           a.status !== AssignmentStatus.CANCELLED
+    );
+    
+    if (existingAssignment) {
+      throw new Error('Cet utilisateur est déjà assigné à ce document');
+    }
+    
     // Créer la nouvelle assignation
     const newAssignment: DocumentAssignment = {
       id: uuidv4(),
@@ -238,7 +275,7 @@ class DocumentCollaborationService {
       assignedBy: assignmentData.assignedBy,
       assignedAt: new Date().toISOString(),
       status: AssignmentStatus.PENDING,
-      priority: assignmentData.priority || 'medium'
+      priority: assignmentData.priority
     };
     
     // Ajouter des champs optionnels s'ils sont fournis
@@ -256,6 +293,16 @@ class DocumentCollaborationService {
     
     // Sauvegarder les données
     this.writeAssignments(data);
+    
+    // Émettre un événement pour notifier l'utilisateur assigné
+    eventService.emit(EventType.ASSIGNMENT_CREATED, {
+      documentId: newAssignment.documentId,
+      assignmentId: newAssignment.id,
+      assignedBy: newAssignment.assignedBy,
+      assignedTo: newAssignment.assignedTo,
+      dueDate: newAssignment.dueDate,
+      priority: newAssignment.priority
+    });
     
     return newAssignment;
   }
@@ -303,7 +350,7 @@ class DocumentCollaborationService {
   /**
    * Met à jour une assignation existante
    */
-  async updateAssignment(assignmentId: string, updateData: UpdateAssignmentRequest): Promise<DocumentAssignment | null> {
+  async updateAssignment(assignmentId: string, updateData: UpdateAssignmentRequest, updatedBy?: string): Promise<DocumentAssignment | null> {
     const data = this.readAssignments();
     let updatedAssignment: DocumentAssignment | null = null;
     
@@ -321,11 +368,23 @@ class DocumentCollaborationService {
         
         // Mettre à jour le statut si spécifié
         if (updateData.status !== undefined) {
+          const oldStatus = updatedAssignment.status;
           updatedAssignment.status = updateData.status;
           
           // Si le statut passe à complété, enregistrer la date d'achèvement
           if (updateData.status === AssignmentStatus.COMPLETED && !updatedAssignment.completedAt) {
             updatedAssignment.completedAt = new Date().toISOString();
+          }
+          
+          // Émettre un événement pour notifier du changement de statut
+          if (updatedBy && oldStatus !== updateData.status) {
+            eventService.emit(EventType.ASSIGNMENT_STATUS_CHANGED, {
+              documentId,
+              assignmentId,
+              updatedBy,
+              assignedTo: assignment.assignedTo,
+              status: updateData.status
+            });
           }
         }
         
@@ -394,6 +453,34 @@ class DocumentCollaborationService {
     }
     
     return true;
+  }
+  
+  /**
+   * Récupère toutes les assignations pour un document spécifique
+   * @param documentId ID du document
+   * @returns Liste des assignations pour ce document
+   */
+  async getAssignmentsByDocumentId(documentId: string): Promise<DocumentAssignment[]> {
+    const data = this.readAssignments();
+    return data[documentId] || [];
+  }
+  
+  /**
+   * Récupère toutes les assignations ayant une date d'échéance
+   * @returns Liste des assignations avec date d'échéance
+   */
+  async getAllAssignmentsWithDueDate(): Promise<DocumentAssignment[]> {
+    const data = this.readAssignments();
+    const allAssignments = Object.values(data).flat();
+    
+    // Filtrer pour ne garder que les assignations avec une date d'échéance
+    return allAssignments.filter(assignment => {
+      return (
+        assignment.dueDate && 
+        assignment.status !== AssignmentStatus.COMPLETED && 
+        assignment.status !== AssignmentStatus.CANCELLED
+      );
+    });
   }
 }
 

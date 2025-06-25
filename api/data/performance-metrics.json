@@ -1,0 +1,13 @@
+{
+  "totalSuggestions": 0,
+  "acceptedSuggestions": 0,
+  "rejectedSuggestions": 0,
+  "averageDecisionTimeMs": 0,
+  "lastUpdated": "2025-06-24T23:37:47.226Z",
+  "explanations": {
+    "total": 0,
+    "helpful": 0,
+    "notHelpful": 0,
+    "byType": {}
+  }
+}

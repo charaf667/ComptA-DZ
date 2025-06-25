@@ -91,18 +91,18 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     );
 
     res.json({
-      message: 'Connexion réussie',
       token,
       user: {
         id: user.id,
         nom: user.nom,
         email: user.email,
         role: user.role,
-        tenant: {
-          id: user.tenant.id,
-          nom: user.tenant.nom,
-        },
+        tenantId: user.tenantId, // Assurer que tenantId est présent
       },
+      tenant: {
+        id: user.tenant.id,
+        nom: user.tenant.nom,
+      }
     });
   } catch (error) {
     console.error('Erreur lors de la connexion:', error);

@@ -1,5 +1,7 @@
+import { Injectable } from '@nestjs/common';
 import { ExtractedData } from './ocr.service';
 import adaptiveLearningService from './adaptive-learning.service';
+import { ExplanationFactor, ExplanationDetail, ExplanationMetrics } from './types/explanation';
 
 export interface AccountSuggestion {
   compteCode: string;
@@ -7,6 +9,10 @@ export interface AccountSuggestion {
   classe: number;
   scoreConfiance: number;
   justification: string;
+  // Nouveaux champs pour l'IA explicable
+  explanationDetails?: ExplanationDetail[];
+  explanationFactors?: ExplanationFactor[];
+  explanationSummary?: string;
 }
 
 export class AiClassificationService {
@@ -90,37 +96,82 @@ export class AiClassificationService {
    */
   public suggestAccount(libelle: string): AccountSuggestion[] {
     if (!libelle) return [];
-    const suggestions: AccountSuggestion[] = [];
-    const libelleLower = libelle.toLowerCase();
     
-    // Recherche par mots-clés
-    for (const rule of this.rules) {
+    const libelleLower = libelle.toLowerCase();
+    const suggestions: AccountSuggestion[] = [];
+    
+    // Parcourir toutes les règles et calculer un score pour chaque correspondance
+    this.rules.forEach(rule => {
       if (libelleLower.includes(rule.motCle.toLowerCase())) {
-        // Calcul du score de confiance basé sur la priorité
-        let scoreConfiance = 0;
-        switch (rule.priorite) {
-          case 1: scoreConfiance = 0.95; break;
-          case 2: scoreConfiance = 0.85; break;
-          case 3: scoreConfiance = 0.75; break;
-          default: scoreConfiance = 0.65;
-        }
+        // Calculer un score basé sur la priorité de la règle et la position du mot-clé
+        const position = libelleLower.indexOf(rule.motCle.toLowerCase());
+        const positionScore = 1 - (position / libelleLower.length); // Plus le mot est au début, plus le score est élevé
+        const priorityFactor = 1 / rule.priorite; // Priorité 1 donne 1, priorité 2 donne 0.5, etc.
+        const score = 0.5 + (0.3 * positionScore) + (0.2 * priorityFactor);
+        
+        // Création des facteurs d'explication pour l'IA explicable
+        const explanationFactors: ExplanationFactor[] = [
+          {
+            factor: 'Mot-clé',
+            value: rule.motCle,
+            impact: 0.6,
+            description: `Le mot-clé "${rule.motCle}" a été détecté dans le libellé`
+          },
+          {
+            factor: 'Position',
+            value: `${Math.round(positionScore * 100)}%`,
+            impact: 0.3,
+            description: `Le mot-clé apparaît ${position === 0 ? 'au début' : position < libelleLower.length / 3 ? 'près du début' : position < libelleLower.length * 2/3 ? 'au milieu' : 'vers la fin'} du libellé`
+          },
+          {
+            factor: 'Priorité',
+            value: `${rule.priorite}`,
+            impact: 0.2,
+            description: `Ce mot-clé a une priorité de ${rule.priorite} (1 étant la plus élevée)`
+          }
+        ];
+        
+        // Création des détails d'explication
+        const explanationDetails: ExplanationDetail[] = [
+          {
+            title: 'Correspondance de mot-clé',
+            description: `Le système a trouvé le mot-clé "${rule.motCle}" dans le libellé "${libelle}".`,
+            confidence: Math.round(score * 100)
+          },
+          {
+            title: 'Classe comptable',
+            description: `Ce compte appartient à la classe ${rule.classe} (${this.getClasseDescription(rule.classe)}).`,
+            confidence: 100
+          },
+          {
+            title: 'Fréquence d\'utilisation',
+            description: `Ce compte est ${this.getUsageFrequency(rule.compteCode)} pour ce type de transaction.`,
+            confidence: 85
+          }
+        ];
+        
+        // Génération d'un résumé explicatif
+        const explanationSummary = `Cette suggestion est basée principalement sur la détection du mot-clé "${rule.motCle}" dans le libellé. La position du mot-clé et sa priorité dans notre système de règles ont également influencé cette suggestion.`;
         
         suggestions.push({
           compteCode: rule.compteCode,
           libelleCompte: rule.libelleCompte,
           classe: rule.classe,
-          scoreConfiance,
-          justification: `Correspondance mot-clé: ${rule.motCle}`
+          scoreConfiance: Math.min(0.95, score), // Plafonner à 0.95 pour laisser place à l'amélioration
+          justification: `Mot-clé "${rule.motCle}" détecté dans le libellé`,
+          explanationFactors,
+          explanationDetails,
+          explanationSummary
         });
       }
-    }
+    });
     
     // Déduplique les suggestions en gardant celle avec le score le plus élevé
     const uniqueSuggestions = this.deduplicateSuggestions(suggestions);
     
     return uniqueSuggestions
       .sort((a, b) => b.scoreConfiance - a.scoreConfiance)
-      .slice(0, 3);
+      .slice(0, 3); // Limiter à 3 suggestions
   }
   
   /**
@@ -204,12 +255,13 @@ export class AiClassificationService {
   /**
    * Classifie un document en fonction des données extraites et suggère des comptes appropriés
    * @param extractedData Données extraites du document
+   * @param tenantId ID du tenant pour lequel classifier le document
    * @returns Suggestions de comptes et écriture comptable proposée
    */
-  public classifyDocument(extractedData: ExtractedData): {
+  public async classifyDocument(extractedData: ExtractedData, tenantId?: string): Promise<{
     suggestions: AccountSuggestion[],
     ecritureProposee: any
-  } {
+  }> {
     let allSuggestions: AccountSuggestion[] = [];
     
     // 1. Suggérer des comptes basés sur le libellé
@@ -244,11 +296,18 @@ export class AiClassificationService {
     
     // 5. NOUVEAU: Intégrer les suggestions de l'apprentissage adaptatif
     try {
-      const adaptiveSuggestions = adaptiveLearningService.suggestAccounts(extractedData);
-      if (adaptiveSuggestions.length > 0) {
-        console.log(`Suggestions adaptatives: ${adaptiveSuggestions.length} trouvées`);
-        // Les suggestions adaptatives ont une priorité plus élevée car elles sont basées sur l'historique
-        allSuggestions = [...adaptiveSuggestions, ...allSuggestions];
+      // Utiliser le tenantId passé en paramètre s'il existe
+      if (tenantId) {
+        // Utiliser await car suggestAccounts est asynchrone
+        const adaptiveSuggestions = await adaptiveLearningService.suggestAccounts(tenantId, extractedData);
+        
+        if (adaptiveSuggestions && adaptiveSuggestions.length > 0) {
+          console.log(`Suggestions adaptatives: ${adaptiveSuggestions.length} trouvées pour tenant ${tenantId}`);
+          // Les suggestions adaptatives ont une priorité plus élevée car elles sont basées sur l'historique
+          allSuggestions = [...adaptiveSuggestions, ...allSuggestions];
+        }
+      } else {
+        console.warn('Impossible de récupérer des suggestions adaptatives: aucun tenant spécifié');
       }
     } catch (error) {
       console.error('Erreur lors de la récupération des suggestions adaptatives:', error);
@@ -276,17 +335,48 @@ export class AiClassificationService {
    * Enregistre le feedback de l'utilisateur pour améliorer les suggestions futures
    * @param extractedData Données extraites du document
    * @param selectedAccount Compte sélectionné par l'utilisateur
+   * @param tenantId ID du tenant pour lequel enregistrer le feedback
+   * @param feedbackData Données supplémentaires de feedback (optionnel)
    */
-  public recordUserFeedback(extractedData: ExtractedData, selectedAccount: AccountSuggestion): void {
+  public recordUserFeedback(extractedData: ExtractedData, selectedAccount: AccountSuggestion, tenantId: string | null | undefined, feedbackData?: any): void {
     try {
+      if (!tenantId) {
+        console.error('Impossible d\'enregistrer le feedback: aucun tenant spécifié');
+        return;
+      }
+
       // Enregistrer le feedback dans le service d'apprentissage adaptatif
-      adaptiveLearningService.recordFeedback(extractedData, selectedAccount);
-      console.log(`Feedback enregistré pour le compte ${selectedAccount.compteCode}`);
+      // La nouvelle signature met tenantId en premier paramètre
+      adaptiveLearningService.recordFeedback(tenantId, extractedData, selectedAccount);
+      
+      // Enregistrer des informations supplémentaires sur le feedback de l'utilisateur
+      // concernant les explications si disponibles
+      if (feedbackData) {
+        console.log(`Feedback détaillé reçu:`, feedbackData);
+        
+        // Mise à jour des métriques de performance avec le feedback sur les explications
+        if (feedbackData.explanationHelpful !== undefined) {
+          adaptiveLearningService.updateExplanationMetrics(tenantId, {
+            isHelpful: feedbackData.explanationHelpful,
+            explanationType: feedbackData.explanationType || 'general',
+            suggestionAccepted: feedbackData.suggestionAccepted || false,
+            comments: feedbackData.comments
+          });
+        }
+      }
+      
+      console.log(`Feedback enregistré pour le compte ${selectedAccount.compteCode} (tenant: ${tenantId})`);
     } catch (error) {
       console.error('Erreur lors de l\'enregistrement du feedback:', error);
     }
   }
 
+  /**
+   * Génère une écriture comptable basée sur les données extraites et la suggestion
+   * @param data Données extraites du document
+   * @param suggestion Suggestion de compte sélectionnée
+   * @returns Écriture comptable générée ou null si impossible
+   */
   private generateJournalEntry(data: ExtractedData, suggestion?: AccountSuggestion) {
     if (!data.montant || !suggestion) return null;
     const montantHT = data.tva ? data.montant - data.tva : data.montant;
@@ -342,6 +432,46 @@ export class AiClassificationService {
       };
     }
     return null;
+  }
+  
+  /**
+   * Obtient la description d'une classe comptable
+   * @param classe Numéro de la classe comptable (1-9)
+   * @returns Description de la classe comptable
+   */
+  public getClasseDescription(classe: number): string {
+    const descriptions: Record<number, string> = {
+      1: 'Comptes de capitaux',
+      2: 'Comptes d\'immobilisations',
+      3: 'Comptes de stocks',
+      4: 'Comptes de tiers',
+      5: 'Comptes financiers',
+      6: 'Comptes de charges',
+      7: 'Comptes de produits',
+      8: 'Comptes spéciaux',
+      9: 'Comptabilité analytique'
+    };
+    
+    return descriptions[classe] || 'Classe inconnue';
+  }
+  
+  /**
+   * Obtient la fréquence d'utilisation d'un compte
+   * @param compteCode Code du compte
+   * @returns Fréquence d'utilisation (1-10)
+   */
+  public getUsageFrequency(compteCode: string): number {
+    // Simuler une fréquence d'utilisation basée sur des données fictives
+    // Dans un cas réel, cela serait basé sur l'analyse des écritures passées
+    const frequentAccounts = ['401', '411', '6061', '6262', '7011'];
+    const mediumAccounts = ['6022', '6064', '6226', '6231', '7061'];
+    
+    if (frequentAccounts.includes(compteCode)) return 9;
+    if (mediumAccounts.includes(compteCode)) return 6;
+    if (compteCode.startsWith('6')) return 4;
+    if (compteCode.startsWith('7')) return 5;
+    
+    return 2; // Fréquence basse par défaut
   }
 }
 

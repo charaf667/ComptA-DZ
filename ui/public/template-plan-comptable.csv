@@ -1,0 +1,7 @@
+code,label,classe,type,category
+512,Banque,5,debit,collectif
+401,Fournisseurs,4,credit,collectif
+411,Clients,4,debit,collectif
+101,Capital social,1,credit,detail
+6061,Achats,6,debit,detail
+701,Ventes de marchandises,7,credit,collectif

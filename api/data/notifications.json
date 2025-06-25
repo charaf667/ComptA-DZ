@@ -1,0 +1,90 @@
+[
+  {
+    "id": "8b4e442a-444e-48ed-8b01-c95d3844598d",
+    "userId": "f3234bea-1d07-414d-95c9-ea1338e77f63",
+    "type": "COMMENT_RESOLVED",
+    "title": "Notification de test",
+    "message": "Ceci est une notification de test créée manuellement.",
+    "isRead": true,
+    "createdAt": "2025-06-18T20:12:27.911Z",
+    "priority": "MEDIUM",
+    "link": "/notifications"
+  },
+  {
+    "id": "8e421836-c3cf-461f-b1fe-ff3ff8a11c40",
+    "userId": "f3234bea-1d07-414d-95c9-ea1338e77f63",
+    "type": "ASSIGNMENT",
+    "title": "Notification de test",
+    "message": "Ceci est une notification de test créée manuellement.",
+    "isRead": true,
+    "createdAt": "2025-06-18T20:12:27.913Z",
+    "priority": "MEDIUM",
+    "link": "/notifications"
+  },
+  {
+    "id": "05a8d35b-6ee2-4382-880c-5681a66faa99",
+    "userId": "f3234bea-1d07-414d-95c9-ea1338e77f63",
+    "type": "COMMENT",
+    "title": "Notification de test",
+    "message": "Ceci est une notification de test créée manuellement.",
+    "isRead": true,
+    "createdAt": "2025-06-18T20:12:27.914Z",
+    "priority": "MEDIUM",
+    "link": "/notifications"
+  },
+  {
+    "id": "6c6c7eb6-0fc6-46d1-b174-978f788b916d",
+    "userId": "f3234bea-1d07-414d-95c9-ea1338e77f63",
+    "type": "ASSIGNMENT_STATUS",
+    "title": "Notification de test",
+    "message": "Ceci est une notification de test créée manuellement.",
+    "isRead": true,
+    "createdAt": "2025-06-18T20:12:27.916Z",
+    "priority": "MEDIUM",
+    "link": "/notifications"
+  },
+  {
+    "id": "9666cd04-b883-4bbd-a589-2cabaebb8b91",
+    "userId": "f3234bea-1d07-414d-95c9-ea1338e77f63",
+    "type": "DUE_DATE",
+    "title": "Notification de test",
+    "message": "Ceci est une notification de test créée manuellement.",
+    "isRead": true,
+    "createdAt": "2025-06-18T20:12:27.918Z",
+    "priority": "MEDIUM",
+    "link": "/notifications"
+  },
+  {
+    "id": "b7ed1fda-80de-4b9e-b6fb-40bdf961cc7b",
+    "userId": "f3234bea-1d07-414d-95c9-ea1338e77f63",
+    "type": "SYSTEM",
+    "title": "Notification de test",
+    "message": "Ceci est une notification de test créée manuellement.",
+    "isRead": true,
+    "createdAt": "2025-06-18T20:12:27.920Z",
+    "priority": "MEDIUM",
+    "link": "/notifications"
+  },
+  {
+    "id": "4b79e4cf-e146-4844-b935-dac47f35eec3",
+    "userId": "f3234bea-1d07-414d-95c9-ea1338e77f63",
+    "type": "DOCUMENT_UPDATED",
+    "title": "Notification de test",
+    "message": "Ceci est une notification de test créée manuellement.",
+    "isRead": true,
+    "createdAt": "2025-06-18T20:12:27.922Z",
+    "priority": "MEDIUM",
+    "link": "/notifications"
+  },
+  {
+    "id": "ade1ab20-0f05-41f5-986a-f2d4cbf15982",
+    "userId": "f3234bea-1d07-414d-95c9-ea1338e77f63",
+    "type": "SYSTEM",
+    "title": "Nouveau Feedback OCR",
+    "message": "L'utilisateur inconnu a soumis un feedback OCR pour le document Document inconnu.",
+    "isRead": true,
+    "createdAt": "2025-06-18T22:12:14.117Z",
+    "priority": "MEDIUM",
+    "link": "/admin/ocr-feedbacks"
+  }
+]

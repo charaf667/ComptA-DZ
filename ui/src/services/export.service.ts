@@ -452,7 +452,6 @@ class ExportService {
     doc.save(`${reportTitle.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`);
   }
   
-  // La méthode groupBy a été supprimée car elle n'est plus utilisée
 }
 
 export default new ExportService();

@@ -1,0 +1,12 @@
+[
+  {
+    "userId": "1",
+    "commentNotifications": true,
+    "assignmentNotifications": true,
+    "documentUpdateNotifications": true,
+    "dueDateNotifications": true,
+    "systemNotifications": true,
+    "emailNotifications": false,
+    "pushNotifications": false
+  }
+]

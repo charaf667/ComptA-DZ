@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/auth/AuthContext';
+import { useNotifications } from '../contexts/notification/NotificationContext';
+import NotificationBell from '../components/notifications/NotificationBell';
 
 /**
  * Layout principal pour le dashboard et toutes les pages après authentification
@@ -9,6 +11,7 @@ const DashboardLayout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const navigate = useNavigate();
   const { user, tenant, logout, isAuthenticated } = useAuth();
+  const { unreadCount } = useNotifications();
   
   // Vérifier l'authentification à chaque rendu
   useEffect(() => {
@@ -73,7 +76,7 @@ const DashboardLayout = () => {
             </li>
             <li>
               <NavLink 
-                to="/factures" 
+                to="factures" 
                 className={({ isActive }) => 
                   `flex items-center p-3 rounded-lg transition-colors ${
                     isActive ? 'bg-primary-50 text-primary-900' : 'text-gray-700 hover:bg-gray-100'
@@ -88,7 +91,7 @@ const DashboardLayout = () => {
             </li>
             <li>
               <NavLink 
-                to="/ocr" 
+                to="ocr" 
                 className={({ isActive }) => 
                   `flex items-center p-3 rounded-lg transition-colors ${
                     isActive ? 'bg-primary-50 text-primary-900' : 'text-gray-700 hover:bg-gray-100'
@@ -105,7 +108,7 @@ const DashboardLayout = () => {
             </li>
             <li>
               <NavLink 
-                to="/document-history" 
+                to="document-history" 
                 className={({ isActive }) => 
                   `flex items-center p-3 rounded-lg transition-colors ${
                     isActive ? 'bg-primary-50 text-primary-900' : 'text-gray-700 hover:bg-gray-100'
@@ -120,7 +123,53 @@ const DashboardLayout = () => {
             </li>
             <li>
               <NavLink 
-                to="/profile" 
+                to="notifications" 
+                className={({ isActive }) => 
+                  `flex items-center p-3 rounded-lg transition-colors ${
+                    isActive ? 'bg-primary-50 text-primary-900' : 'text-gray-700 hover:bg-gray-100'
+                  }`
+                }
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+                {sidebarOpen && (
+                  <div className="flex items-center ml-3">
+                    <span>Notifications</span>
+                    {unreadCount > 0 && (
+                      <span className="ml-2 bg-error text-white text-xs font-semibold px-1.5 py-0.5 rounded-full">
+                        {unreadCount > 99 ? '99+' : unreadCount}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </NavLink>
+            </li>
+            
+            {/* Section Comptabilité */}
+            <li className="mt-6">
+              {sidebarOpen && <h3 className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">Comptabilité</h3>}
+              <ul className="mt-2 space-y-2">
+                <li>
+                  <NavLink 
+                    to="accounting/chart-of-accounts" 
+                    className={({ isActive }) => 
+                      `flex items-center p-3 rounded-lg transition-colors ${
+                        isActive ? 'bg-primary-50 text-primary-900' : 'text-gray-700 hover:bg-gray-100'
+                      }`
+                    }
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    </svg>
+                    {sidebarOpen && <span className="ml-3">Plan Comptable</span>}
+                  </NavLink>
+                </li>
+              </ul>
+            </li>
+            <li>
+              <NavLink 
+                to="profile" 
                 className={({ isActive }) => 
                   `flex items-center p-3 rounded-lg transition-colors ${
                     isActive ? 'bg-primary-50 text-primary-900' : 'text-gray-700 hover:bg-gray-100'
@@ -163,13 +212,41 @@ const DashboardLayout = () => {
             </svg>
           </button>
           <div className="flex items-center ml-auto">
+            {/* Lien Admin Dashboard */}
+              <NavLink 
+                to="admin/performance-dashboard" 
+                className="mr-4 p-1 rounded-full text-gray-500 hover:text-primary-700 hover:bg-gray-100 transition-colors duration-150"
+                title="Admin Dashboard"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.428 11.428a4.072 4.072 0 01-4.072 4.072H8.644a4.072 4.072 0 01-4.072-4.072V8.644c0-1.33.636-2.563 1.672-3.345L10 2.5l3.728 2.799c1.036.782 1.672 2.015 1.672 3.345v2.784zM10 12a2 2 0 100-4 2 2 0 000 4z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10 12v3.428m5.714-3.428V12A5.714 5.714 0 0010 6.286M4.286 12h2.857" />
+                </svg>
+              </NavLink>
+              {/* Lien Learning Patterns */}
+              <NavLink 
+                to="admin/learning-patterns" 
+                className="mr-4 p-1 rounded-full text-gray-500 hover:text-primary-700 hover:bg-gray-100 transition-colors duration-150"
+                title="Learning Patterns"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.25278C12 6.25278 6.73812 3.75278 3.75278 3.75278C3.75278 3.75278 1.25278 6.73812 1.25278 9.72347C1.25278 14.8085 6.73812 19.9995 12 21.2472C17.2619 19.9995 22.7472 14.8085 22.7472 9.72347C22.7472 6.73812 20.2472 3.75278 20.2472 3.75278C17.2619 3.75278 12 6.25278 12 6.25278Z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75278 13.7472L12 16.2472L20.2472 13.7472"/>
+                </svg>
+              </NavLink>
+              
+              {/* Lien Métriques d'explications IA */}
+              <NavLink 
+                to="admin/explanation-metrics" 
+                className="mr-4 p-1 rounded-full text-gray-500 hover:text-primary-700 hover:bg-gray-100 transition-colors duration-150"
+                title="Métriques d'explications IA"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+              </NavLink>
             {/* Notifications */}
-            <button className="p-2 mx-2 text-gray-500 hover:text-primary-900 relative">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-              </svg>
-              <span className="absolute top-0 right-0 h-2 w-2 rounded-full bg-error"></span>
-            </button>
+            <NotificationBell />
             
             {/* Profil utilisateur */}
             <div className="relative">

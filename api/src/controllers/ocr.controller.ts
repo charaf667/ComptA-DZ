@@ -1,8 +1,11 @@
 import { Request, Response } from 'express';
+import { AuthRequest } from '../middlewares/authMiddleware';
+import eventService, { EventType } from '../services/event.service';
 import * as path from 'path';
 import * as fs from 'fs-extra';
-import ocrService from '../services/ocr.service';
-import aiClassificationService from '../services/ai-classification.service';
+import ocrService, { ExtractedData } from '../services/ocr.service';
+import aiClassificationService, { AccountSuggestion } from '../services/ai-classification.service';
+import adaptiveLearningService from '../services/adaptive-learning.service';
 
 export class OcrController {
   /**
@@ -10,7 +13,7 @@ export class OcrController {
    * @param req Requête HTTP
    * @param res Réponse HTTP
    */
-  public async processFile(req: Request, res: Response): Promise<void> {
+  public async processFile(req: AuthRequest, res: Response): Promise<void> {
     try {
       if (!req.file) {
         res.status(400).json({ success: false, message: 'Aucun fichier n\'a été téléchargé' });
@@ -50,20 +53,32 @@ export class OcrController {
   /**
    * Classifie un document et suggère des comptes comptables
    */
-  public async classifyDocument(req: Request, res: Response): Promise<void> {
+  public async classifyDocument(req: AuthRequest, res: Response): Promise<void> {
     try {
       const { extractedData } = req.body;
+      const tenantId = req.tenant?.id;
 
       if (!extractedData) {
         res.status(400).json({ success: false, message: 'Données extraites manquantes' });
         return;
       }
 
-      const classification = aiClassificationService.classifyDocument(extractedData);
+      if (!tenantId) {
+        res.status(400).json({ success: false, message: 'Identifiant du tenant manquant' });
+        return;
+      }
+
+      const classificationResult = await aiClassificationService.classifyDocument(extractedData, tenantId);
+
+      // Enrichir extractedData avec la meilleure suggestion initiale
+      if (classificationResult.suggestions && classificationResult.suggestions.length > 0) {
+        extractedData.initialAISuggestion = classificationResult.suggestions[0];
+      }
 
       res.status(200).json({
         success: true,
-        data: classification
+        extractedData, // Retourner extractedData enrichi
+        classification: classificationResult
       });
     } catch (error) {
       console.error('Erreur lors de la classification du document:', error);
@@ -80,7 +95,7 @@ export class OcrController {
    * @param req Requête HTTP
    * @param res Réponse HTTP
    */
-  public async processAndClassify(req: Request, res: Response): Promise<void> {
+  public async processAndClassify(req: AuthRequest, res: Response): Promise<void> {
     try {
       if (!req.file) {
         res.status(400).json({ success: false, message: 'Aucun fichier n\'a été téléchargé' });
@@ -152,13 +167,26 @@ export class OcrController {
       // Extraction des données du fichier
       const extractedData = await ocrService.extractDataFromFile(filePath);
 
+      // Récupération du tenantId
+      const tenantId = (req as AuthRequest).tenant?.id;
+      
+      if (!tenantId) {
+        res.status(400).json({ success: false, message: 'Identifiant du tenant manquant' });
+        return;
+      }
+      
       // Classification des données extraites
-      const classification = aiClassificationService.classifyDocument(extractedData);
+      const classificationResult = await aiClassificationService.classifyDocument(extractedData, tenantId);
+
+      // Enrichir extractedData avec la meilleure suggestion initiale
+      if (classificationResult.suggestions && classificationResult.suggestions.length > 0) {
+        extractedData.initialAISuggestion = classificationResult.suggestions[0];
+      }
 
       res.status(200).json({
         success: true,
-        extractedData,
-        classification
+        extractedData, // extractedData est maintenant enrichi
+        classification: classificationResult
       });
     } catch (error: any) {
       console.error('Erreur lors du traitement et de la classification du fichier:', error);
@@ -188,25 +216,60 @@ export class OcrController {
    * @param req Requête HTTP contenant les données extraites et le compte sélectionné
    * @param res Réponse HTTP
    */
-  public async recordFeedback(req: Request, res: Response): Promise<void> {
+  public async recordFeedback(req: AuthRequest, res: Response): Promise<void> {
     try {
-      const { extractedData, selectedAccount } = req.body;
-
+      const { extractedData, selectedAccount, feedbackData } = req.body;
+      const tenantId = req.tenant?.id;
+      
+      // Validation des données entrantes
       if (!extractedData || !selectedAccount) {
-        res.status(400).json({ 
-          success: false, 
-          message: 'Données manquantes: extractedData et selectedAccount sont requis' 
+        res.status(400).json({
+          success: false,
+          message: 'Données manquantes: extractedData et selectedAccount sont requis'
         });
         return;
       }
-
-      // Enregistrer le feedback dans le service de classification IA
-      aiClassificationService.recordUserFeedback(extractedData, selectedAccount);
+      
+      // Validation du tenantId
+      if (!tenantId) {
+        res.status(403).json({
+          success: false,
+          message: 'Accès refusé: identifiant du tenant manquant'
+        });
+        return;
+      }
+      
+      // Enregistrement du feedback via le service AI Classification
+      aiClassificationService.recordUserFeedback(extractedData, selectedAccount, tenantId, feedbackData);
+      
+      // Émission d'un événement pour la notification
+      try {
+        if (req.user?.id) {
+          const userName = req.user.name || 'Utilisateur';
+          const docId = extractedData.documentId || 'inconnu';
+          const docName = extractedData.fileName || 'Document inconnu';
+          
+          const eventData = {
+            userId: req.user.id,
+            userName: userName,
+            tenantId: tenantId,
+            documentId: docId,
+            documentName: docName,
+          };
+          
+          eventService.emit(EventType.OCR_FEEDBACK_SUBMITTED, eventData);
+        } else {
+          console.warn('User information not available in request (req.user.id missing), skipping OCR feedback notification.');
+        }
+      } catch (eventError) {
+        console.error('Failed to emit OCR_FEEDBACK_SUBMITTED event:', eventError);
+      }
 
       res.status(200).json({
         success: true,
         message: 'Feedback enregistré avec succès'
       });
+
     } catch (error) {
       console.error('Erreur lors de l\'enregistrement du feedback:', error);
       res.status(500).json({
@@ -222,7 +285,7 @@ export class OcrController {
    * @param req Requête HTTP contenant les données extraites modifiées
    * @param res Réponse HTTP
    */
-  public async saveEditedData(req: Request, res: Response): Promise<void> {
+  public async saveEditedData(req: AuthRequest, res: Response): Promise<void> {
     try {
       const { editedData, documentId } = req.body;
 
@@ -264,6 +327,74 @@ export class OcrController {
       res.status(500).json({
         success: false,
         message: 'Une erreur est survenue lors de la sauvegarde des données modifiées',
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  }
+
+  /**
+   * Récupère les patterns d'apprentissage adaptatif
+   * @param req Requête HTTP
+   * @param res Réponse HTTP
+   */
+  public async getLearningPatterns(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      // Paramètres optionnels de filtrage
+      const { accountCode, minConfidence, minOccurrences, limit } = req.query;
+      const tenantId = req.tenant?.id;
+
+      if (!tenantId) {
+        res.status(403).json({ success: false, message: 'Accès non autorisé ou tenant non identifié.' });
+        return;
+      }
+      
+      // Récupérer les patterns
+      const patterns = await adaptiveLearningService.getPatterns(tenantId, {
+        accountCode: accountCode as string,
+        minConfidence: minConfidence ? parseFloat(minConfidence as string) : undefined,
+        minOccurrences: minOccurrences ? parseInt(minOccurrences as string) : undefined,
+        limit: limit ? parseInt(limit as string) : undefined
+      });
+      
+      res.status(200).json({
+        success: true,
+        count: patterns.length,
+        data: patterns
+      });
+    } catch (error) {
+      console.error('Erreur lors de la récupération des patterns d\'apprentissage:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Une erreur est survenue lors de la récupération des patterns d\'apprentissage',
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+  }
+
+  /**
+   * Récupère les métriques de performance
+   * @param req Requête HTTP
+   * @param res Réponse HTTP
+   */
+  public async getPerformanceMetrics(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const tenantId = req.tenant?.id;
+      
+      if (!tenantId) {
+        res.status(403).json({ success: false, message: 'Accès non autorisé ou tenant non identifié.' });
+        return;
+      }
+      
+      const metrics = await adaptiveLearningService.getPerformanceMetrics(tenantId);
+      res.status(200).json({
+        success: true,
+        data: metrics
+      });
+    } catch (error) {
+      console.error('Erreur lors de la récupération des métriques de performance:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Une erreur est survenue lors de la récupération des métriques de performance',
         error: error instanceof Error ? error.message : String(error)
       });
     }

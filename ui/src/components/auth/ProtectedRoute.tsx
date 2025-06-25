@@ -20,7 +20,7 @@ const ProtectedRoute: React.FC = () => {
 
   // Rediriger vers la page de connexion si l'utilisateur n'est pas authentifié
   if (!isAuthenticated) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    return <Navigate to="/auth/login" state={{ from: location }} replace />;
   }
 
   // Afficher les composants enfants si l'utilisateur est authentifié

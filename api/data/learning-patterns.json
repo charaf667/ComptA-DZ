@@ -33,5 +33,110 @@
     "occurrences": 1,
     "lastUsed": "2025-05-28T19:05:53.003Z",
     "confidence": 0.8
+  },
+  {
+    "pattern": ": société alpha",
+    "accountCode": "6064",
+    "occurrences": 7,
+    "lastUsed": "2025-06-04T18:01:36.332Z",
+    "confidence": 0.98
+  },
+  {
+    "pattern": ": eurl delta",
+    "accountCode": "628",
+    "occurrences": 1,
+    "lastUsed": "2025-06-04T16:56:51.075Z",
+    "confidence": 0.9
+  },
+  {
+    "pattern": ": comptoir epsilon",
+    "accountCode": "628",
+    "occurrences": 1,
+    "lastUsed": "2025-06-04T17:19:03.772Z",
+    "confidence": 0.9
+  },
+  {
+    "pattern": "apprentissage:",
+    "accountCode": "6064",
+    "occurrences": 7,
+    "lastUsed": "2025-06-04T21:00:55.769Z",
+    "confidence": 0.7972955074527657
+  },
+  {
+    "pattern": "société",
+    "accountCode": "6064",
+    "occurrences": 7,
+    "lastUsed": "2025-06-04T21:00:55.769Z",
+    "confidence": 0.7972955074527657
+  },
+  {
+    "pattern": "alpha\"",
+    "accountCode": "6064",
+    "occurrences": 7,
+    "lastUsed": "2025-06-04T21:00:55.769Z",
+    "confidence": 0.7972955074527657
+  },
+  {
+    "pattern": "suggestion",
+    "accountCode": "628",
+    "occurrences": 13,
+    "lastUsed": "2025-06-04T20:59:38.504Z",
+    "confidence": 0.8282474678730768
+  },
+  {
+    "pattern": "défaut",
+    "accountCode": "628",
+    "occurrences": 13,
+    "lastUsed": "2025-06-04T20:59:38.504Z",
+    "confidence": 0.8282474678730768
+  },
+  {
+    "pattern": "pour",
+    "accountCode": "628",
+    "occurrences": 13,
+    "lastUsed": "2025-06-04T20:59:38.504Z",
+    "confidence": 0.8282474678730768
+  },
+  {
+    "pattern": "test",
+    "accountCode": "628",
+    "occurrences": 13,
+    "lastUsed": "2025-06-04T20:59:38.504Z",
+    "confidence": 0.8282474678730768
+  },
+  {
+    "pattern": "mot-clé",
+    "accountCode": "7011",
+    "occurrences": 1,
+    "lastUsed": "2025-06-18T22:12:14.105Z",
+    "confidence": 0.7
+  },
+  {
+    "pattern": "\"produit\"",
+    "accountCode": "7011",
+    "occurrences": 1,
+    "lastUsed": "2025-06-18T22:12:14.105Z",
+    "confidence": 0.7
+  },
+  {
+    "pattern": "détecté",
+    "accountCode": "7011",
+    "occurrences": 1,
+    "lastUsed": "2025-06-18T22:12:14.105Z",
+    "confidence": 0.7
+  },
+  {
+    "pattern": "dans",
+    "accountCode": "7011",
+    "occurrences": 1,
+    "lastUsed": "2025-06-18T22:12:14.105Z",
+    "confidence": 0.7
+  },
+  {
+    "pattern": "libellé",
+    "accountCode": "7011",
+    "occurrences": 1,
+    "lastUsed": "2025-06-18T22:12:14.105Z",
+    "confidence": 0.7
   }
 ]

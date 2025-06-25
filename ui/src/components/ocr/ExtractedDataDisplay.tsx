@@ -17,18 +17,6 @@ interface ExtractedDataDisplayProps {
 }
 
 const ExtractedDataDisplay: React.FC<ExtractedDataDisplayProps> = ({ data, isLoading = false }) => {
-  const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 0.7) return 'text-success';
-    if (confidence >= 0.4) return 'text-warning';
-    return 'text-error';
-  };
-
-  const getConfidenceLabel = (confidence: number) => {
-    if (confidence >= 0.7) return 'Élevée';
-    if (confidence >= 0.4) return 'Moyenne';
-    return 'Faible';
-  };
-
   if (isLoading) {
     return (
       <div className="p-6 border rounded-lg bg-background dark:bg-background-dark shadow-sm animate-pulse">
@@ -52,12 +40,7 @@ const ExtractedDataDisplay: React.FC<ExtractedDataDisplayProps> = ({ data, isLoa
     <div className="p-6 border rounded-lg bg-background dark:bg-background-dark shadow-sm">
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-medium">Données extraites</h3>
-        <div className="flex items-center">
-          <span className="text-sm text-text-secondary mr-2">Confiance:</span>
-          <span className={`text-sm font-medium ${getConfidenceColor(data.confidence)}`}>
-            {getConfidenceLabel(data.confidence)} ({Math.round(data.confidence * 100)}%)
-          </span>
-        </div>
+        
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

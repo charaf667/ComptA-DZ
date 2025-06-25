@@ -41,6 +41,7 @@ const multer_1 = __importDefault(require("multer"));
 const path = __importStar(require("path"));
 const fs = __importStar(require("fs-extra"));
 const ocr_controller_1 = __importDefault(require("../controllers/ocr.controller"));
+const authMiddleware_1 = __importDefault(require("../middlewares/authMiddleware"));
 const router = express_1.default.Router();
 // Configuration de Multer pour le stockage des fichiers
 const storage = multer_1.default.diskStorage({
@@ -93,6 +94,35 @@ const upload = (0, multer_1.default)({
 router.post('/extract', upload.single('file'), ocr_controller_1.default.processFile);
 router.post('/classify', ocr_controller_1.default.classifyDocument);
 router.post('/process', upload.single('file'), ocr_controller_1.default.processAndClassify);
-router.post('/feedback', ocr_controller_1.default.recordFeedback);
+router.post('/feedback', authMiddleware_1.default, ocr_controller_1.default.recordFeedback); // Ajout du middleware d'authentification
 router.post('/save-edited-data', ocr_controller_1.default.saveEditedData);
+// Route pour récupérer les patterns d'apprentissage adaptatif (pour administration/debug)
+router.get('/learning-patterns', async (req, res) => {
+    try {
+        // Importer le service d'apprentissage adaptatif
+        const adaptiveLearningService = require('../services/adaptive-learning.service').default;
+        // Paramètres optionnels de filtrage
+        const { accountCode, minConfidence, minOccurrences, limit } = req.query;
+        // Récupérer les patterns
+        const patterns = adaptiveLearningService.getPatterns({
+            accountCode: accountCode,
+            minConfidence: minConfidence ? parseFloat(minConfidence) : undefined,
+            minOccurrences: minOccurrences ? parseInt(minOccurrences) : undefined,
+            limit: limit ? parseInt(limit) : undefined
+        });
+        res.status(200).json({
+            success: true,
+            count: patterns.length,
+            data: patterns
+        });
+    }
+    catch (error) {
+        console.error('Erreur lors de la récupération des patterns d\'apprentissage:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Une erreur est survenue lors de la récupération des patterns d\'apprentissage',
+            error: error instanceof Error ? error.message : String(error)
+        });
+    }
+});
 exports.default = router;

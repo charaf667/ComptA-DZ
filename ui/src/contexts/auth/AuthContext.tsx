@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import type { AuthContextType, User, Tenant, RegisterData } from './types';
 
+import { API_BASE_URL } from '../../config'; // Importer API_BASE_URL
+
 // Création du contexte d'authentification
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -69,32 +71,24 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setIsLoading(true);
       setError(null);
       
-      // TODO: Connecter avec l'API backend
-      // Pour le moment, on simule une connexion réussie
-      // Notez que le mot de passe est simplement vérifié localement pour la démo
-      // Dans une implémentation réelle, cela serait fait côté serveur
-      if (password.length < 6) {
-        throw new Error("Le mot de passe doit contenir au moins 6 caractères");
-      }
-      
-      const response = await new Promise<any>(resolve => {
-        setTimeout(() => {
-          resolve({
-            token: 'fake_token_123',
-            user: {
-              id: '1',
-              nom: 'Utilisateur Test',
-              email,
-              role: 'ADMIN' as const,
-              tenantId: '1'
-            },
-            tenant: {
-              id: '1',
-              nom: 'Entreprise Test'
-            }
-          });
-        }, 1000);
+      const apiResponse = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
       });
+
+      if (!apiResponse.ok) {
+        const errorData = await apiResponse.json();
+        throw new Error(errorData.message || `Erreur de connexion: ${apiResponse.status}`);
+      }
+
+      const response = await apiResponse.json(); // { token: string, user: User, tenant: Tenant }
+
+      if (!response.token || !response.user || !response.tenant) {
+        throw new Error('Réponse de connexion invalide du serveur.');
+      }
       
       // Stocker les informations d'authentification
       localStorage.setItem('auth_token', response.token);

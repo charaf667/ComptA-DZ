@@ -27,11 +27,18 @@ const Login = () => {
       setLocalError('');
       clearError();
       
+      console.log('Login - Tentative de connexion avec email:', email);
+      
       // Appeler la fonction de connexion du contexte d'authentification
       await login(email, password);
       
+      console.log('Login - Connexion réussie, redirection vers le dashboard');
+      
       // Si la connexion réussit, rediriger vers le dashboard
-      navigate('/');
+      // Utiliser setTimeout pour s'assurer que l'état d'authentification est bien mis à jour
+      setTimeout(() => {
+        navigate('/', { replace: true });
+      }, 100);
     } catch (err: any) {
       // L'erreur est déjà gérée par le contexte d'authentification
       setLocalError(err.message || 'Identifiants incorrects. Veuillez réessayer.');
